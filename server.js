@@ -239,6 +239,11 @@ function getHTML() {
     .seg.stakes { border-color: var(--stakes); background: linear-gradient(90deg, rgba(244,63,94,0.12) 0%, var(--bg3) 100%); }
     .seg.comments { border-color: var(--comments); }
 
+    .video-info-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .url-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; color: var(--dim); font-size: 11px; font-weight: 700; text-decoration: none; letter-spacing: 0.05em; }
+    .url-btn:hover { border-color: var(--hook); color: var(--hook); }
+    .char-count { font-size: 10px; }
+
     .seg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 4px; overflow: hidden; }
     .seg-type {
       font-size: calc(9px * var(--scale-t)); font-weight: 600; text-transform: uppercase;
@@ -304,6 +309,13 @@ function getHTML() {
     .clipboard-toast.show { opacity: 1; }
 
     .seg.seg-selected { outline: 2px solid var(--hook); outline-offset: 1px; }
+
+    @media (max-width: 768px) {
+      .video-row { flex-direction: column; min-height: unset; }
+      .video-info { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid var(--border); }
+      .segments { min-height: 120px; }
+      .scale-controls { display: none; }
+    }
 
     @media print {
       @page { size: landscape; margin: 8mm; }
@@ -513,6 +525,18 @@ function setStatus(type, msg) {
   el.textContent = msg;
 }
 
+function videoCharCount(v) {
+  return (v.roadmap?.segments || []).reduce((n, s) =>
+    n + (s.title||'').length + (s.desc||'').length + (s.notes||'').length, 0);
+}
+function updateCharCount(vi) {
+  let n = 0;
+  document.querySelectorAll('.video-row[data-vi="' + vi + '"] .seg-title, .video-row[data-vi="' + vi + '"] .seg-desc, .video-row[data-vi="' + vi + '"] .seg-notes')
+    .forEach(el => n += (el.value || '').length);
+  const el = document.getElementById('cc-' + vi);
+  if (el) { el.textContent = n + '/2000'; el.style.color = n > 2000 ? 'var(--escalate)' : ''; }
+}
+
 function collectAll() {
   document.querySelectorAll('.video-row').forEach(row => {
     const vi = +row.dataset.vi;
@@ -560,6 +584,10 @@ function render() {
       '<div class="video-info">' +
         '<div class="video-meta"><span class="video-num">#' + (vi + 1) + '</span><span class="video-status">' + esc(v.status || '-') + '</span></div>' +
         '<input class="video-title" value="' + esc(v.title) + '" placeholder="Title...">' +
+        '<div class="video-info-row">' +
+          (v.url ? '<a class="url-btn" href="' + esc(v.url) + '" target="_blank" rel="noopener">URL</a>' : '') +
+          '<span class="char-count" id="cc-' + vi + '"' + (videoCharCount(v) > 2000 ? ' style="color:var(--escalate)"' : '') + '>' + videoCharCount(v) + '/2000</span>' +
+        '</div>' +
         '<div class="video-hook">' + esc(v.hook || 'No hook') + '</div>' +
       '</div>' +
       '<div class="segments" data-vi="' + vi + '">' +
@@ -577,11 +605,11 @@ function render() {
 
 function renderSeg(vi, si, s) {
   const titleHtml = wrapMode
-    ? '<textarea class="seg-title seg-ta" placeholder="Title..." oninput="autoResize(this)">' + esc(s.title) + '</textarea>'
-    : '<input class="seg-title" value="' + esc(s.title) + '" placeholder="Title...">';
+    ? '<textarea class="seg-title seg-ta" placeholder="Title..." oninput="autoResize(this);updateCharCount(' + vi + ')">' + esc(s.title) + '</textarea>'
+    : '<input class="seg-title" value="' + esc(s.title) + '" placeholder="Title..." oninput="updateCharCount(' + vi + ')">';
   const notesHtml = wrapMode
-    ? '<textarea class="seg-notes seg-ta" placeholder="Notes..." oninput="autoResize(this)">' + esc(s.notes) + '</textarea>'
-    : '<input class="seg-notes" value="' + esc(s.notes) + '" placeholder="Notes...">';
+    ? '<textarea class="seg-notes seg-ta" placeholder="Notes..." oninput="autoResize(this);updateCharCount(' + vi + ')">' + esc(s.notes) + '</textarea>'
+    : '<input class="seg-notes" value="' + esc(s.notes) + '" placeholder="Notes..." oninput="updateCharCount(' + vi + ')">';
   return '<div class="seg ' + s.type + '" data-type="' + s.type + '" data-vi="' + vi + '" data-si="' + si + '" draggable="true">' +
     '<div class="seg-header">' +
       '<select class="seg-type" onchange="chgType(this)">' +
@@ -597,7 +625,7 @@ function renderSeg(vi, si, s) {
       '<button class="seg-btn seg-menu-btn" onclick="toggleMenu(this,event,' + vi + ',' + si + ')" title="Actions">⋮</button>' +
     '</div>' +
     titleHtml +
-    '<textarea class="seg-desc" placeholder="Description..."' + (wrapMode ? ' oninput="autoResize(this)"' : '') + '>' + esc(s.desc) + '</textarea>' +
+    '<textarea class="seg-desc" placeholder="Description..."' + (wrapMode ? ' oninput="autoResize(this);updateCharCount(' + vi + ')"' : ' oninput="updateCharCount(' + vi + ')"') + '>' + esc(s.desc) + '</textarea>' +
     notesHtml +
   '</div>';
 }
