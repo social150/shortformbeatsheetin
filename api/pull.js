@@ -39,7 +39,8 @@ module.exports = async (req, res) => {
           ]
         };
       }
-      return { id: page.id, url: page.url, title, hook, status, roadmap };
+      const videoUrl = p['URL']?.url || '';
+      return { id: page.id, url: page.url, videoUrl, title, hook, status, roadmap };
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

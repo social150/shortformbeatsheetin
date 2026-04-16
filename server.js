@@ -58,7 +58,8 @@ async function pullVideos() {
         ]
       };
     }
-    return { id: page.id, url: page.url, title, hook, status, roadmap };
+    const videoUrl = p['URL']?.url || '';
+    return { id: page.id, url: page.url, videoUrl, title, hook, status, roadmap };
   });
 }
 
@@ -585,7 +586,7 @@ function render() {
         '<div class="video-meta"><span class="video-num">#' + (vi + 1) + '</span><span class="video-status">' + esc(v.status || '-') + '</span></div>' +
         '<input class="video-title" value="' + esc(v.title) + '" placeholder="Title...">' +
         '<div class="video-info-row">' +
-          (v.url ? '<a class="url-btn" href="' + esc(v.url) + '" target="_blank" rel="noopener">URL</a>' : '') +
+          (v.videoUrl ? '<a class="url-btn" href="' + esc(v.videoUrl) + '" target="_blank" rel="noopener">URL</a>' : '<span class="url-btn" style="opacity:0.4;cursor:default">no url</span>') +
           '<span class="char-count" id="cc-' + vi + '"' + (videoCharCount(v) > 2000 ? ' style="color:var(--escalate)"' : '') + '>' + videoCharCount(v) + '/2000</span>' +
         '</div>' +
         '<div class="video-hook">' + esc(v.hook || 'No hook') + '</div>' +
