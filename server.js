@@ -158,6 +158,7 @@ function getHTML() {
       --payoff: #22c55e; --cta: #a855f7; --body: #6366f1; --test: #64748b;
       --escalate: #ef4444; --wildcard: #ec4899; --b-story: #14b8a6; --conclusion: #8b5cf6;
       --prepare: #f97316; --purchase: #10b981;
+      --stakes: #f43f5e; --comments: #94a3b8;
       --scale-w: 1; --scale-h: 1; --scale-t: 1;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -235,6 +236,8 @@ function getHTML() {
     .seg.conclusion { border-color: var(--conclusion); }
     .seg.prepare { border-color: var(--prepare); background: linear-gradient(90deg, rgba(249,115,22,0.12) 0%, var(--bg3) 100%); }
     .seg.purchase { border-color: var(--purchase); background: linear-gradient(90deg, rgba(16,185,129,0.12) 0%, var(--bg3) 100%); }
+    .seg.stakes { border-color: var(--stakes); background: linear-gradient(90deg, rgba(244,63,94,0.12) 0%, var(--bg3) 100%); }
+    .seg.comments { border-color: var(--comments); }
 
     .seg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 4px; overflow: hidden; }
     .seg-type {
@@ -377,7 +380,7 @@ let historyIndex = -1;
 let selectedVi = null, selectedSi = null;
 let lastHoveredVi = 0;
 let wrapMode = false;
-const TYPES = ['hook','intro','open-loop','loop-back','payoff','cta','body','test','escalate','wildcard','b-story','conclusion','prepare','purchase'];
+const TYPES = ['hook','intro','open-loop','loop-back','payoff','cta','body','test','escalate','wildcard','b-story','conclusion','prepare','purchase','stakes','comments'];
 
 // ── History ────────────────────────────────────────────────
 function saveHistory() {
