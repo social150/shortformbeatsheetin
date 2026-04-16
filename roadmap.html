@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beat Sheet Editor</title>
+  <style>
+    :root {
+      --bg: #0d0d12;
+      --bg2: #16161e;
+      --bg3: #1e1e28;
+      --border: #2a2a3a;
+      --text: #e8e8ed;
+      --dim: #6b6b80;
+      --hook: #3b82f6;
+      --intro: #06b6d4;
+      --open-loop: #f59e0b;
+      --loop-back: #ea580c;
+      --payoff: #22c55e;
+      --cta: #a855f7;
+      --body: #6366f1;
+      --test: #64748b;
+      --escalate: #ef4444;
+      --wildcard: #ec4899;
+      --b-story: #14b8a6;
+      --conclusion: #8b5cf6;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 13px; }
+    
+    .header { 
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .header h1 { font-size: 16px; font-weight: 600; }
+    .header-actions { margin-left: auto; display: flex; gap: 8px; }
+    .btn {
+      padding: 8px 14px; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg2); color: var(--text); font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .btn:hover { border-color: var(--dim); }
+    .btn-green { background: var(--payoff); border-color: var(--payoff); }
+
+    .filter-bar {
+      display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+      background: var(--bg2); border-bottom: 1px solid var(--border); flex-wrap: wrap;
+    }
+    .filter-bar label { font-size: 12px; color: var(--dim); }
+    .filter-select {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+      padding: 6px 12px; color: var(--text); font-size: 12px; cursor: pointer;
+    }
+    .filter-select:focus { outline: none; border-color: var(--hook); }
+    .status-counts { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+    .status-count {
+      font-size: 11px; padding: 4px 10px; border-radius: 12px;
+      background: var(--bg3); color: var(--dim); cursor: pointer; transition: all 0.15s;
+    }
+    .status-count:hover { background: var(--border); color: var(--text); }
+    .status-count.active { background: var(--hook); color: white; }
+
+    .legend {
+      display: flex; gap: 12px; padding: 8px 16px; background: var(--bg);
+      border-bottom: 1px solid var(--border); flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--dim); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+    .videos { display: flex; flex-direction: column; }
+
+    .video-row {
+      display: flex; align-items: stretch; border-bottom: 1px solid var(--border);
+      min-height: 72px; background: var(--bg2);
+    }
+    .video-row:nth-child(odd) { background: var(--bg); }
+    .video-row:hover { background: var(--bg3); }
+    .video-row.hidden { display: none; }
+
+    .video-info {
+      width: 220px; min-width: 220px; padding: 10px 12px;
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .video-meta { display: flex; align-items: center; gap: 8px; }
+    .video-num { font-size: 10px; font-weight: 700; color: var(--dim); font-family: monospace; }
+    .video-status {
+      font-size: 9px; font-weight: 600; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 10px;
+      background: var(--bg3); color: var(--dim);
+    }
+    .video-title {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      background: transparent; border: none; width: 100%; font-family: inherit;
+    }
+    .video-title:focus { outline: none; background: var(--bg3); border-radius: 3px; padding: 2px 4px; margin: -2px -4px; }
+    .video-hook { font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .segments {
+      flex: 1; display: flex; align-items: center; gap: 4px;
+      padding: 8px 12px; overflow-x: auto;
+    }
+
+    .seg {
+      min-width: 100px; max-width: 140px; flex-shrink: 0;
+      background: var(--bg3); border-radius: 6px; padding: 8px;
+      border-left: 3px solid var(--test); position: relative;
+    }
+    .seg:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    .seg.hook { border-color: var(--hook); }
+    .seg.intro { border-color: var(--intro); }
+    .seg.open-loop { border-color: var(--open-loop); background: linear-gradient(90deg, rgba(245,158,11,0.08) 0%, var(--bg3) 100%); }
+    .seg.loop-back { border-color: var(--loop-back); background: linear-gradient(90deg, rgba(234,88,12,0.08) 0%, var(--bg3) 100%); }
+    .seg.payoff { border-color: var(--payoff); background: linear-gradient(90deg, rgba(34,197,94,0.08) 0%, var(--bg3) 100%); }
+    .seg.cta { border-color: var(--cta); }
+    .seg.body { border-color: var(--body); }
+    .seg.test { border-color: var(--test); }
+    .seg.escalate { border-color: var(--escalate); }
+    .seg.wildcard { border-color: var(--wildcard); }
+    .seg.b-story { border-color: var(--b-story); background: linear-gradient(90deg, rgba(20,184,166,0.08) 0%, var(--bg3) 100%); }
+    .seg.conclusion { border-color: var(--conclusion); }
+
+    .seg-type {
+      font-size: 9px; font-weight: 600; text-transform: uppercase;
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;
+      padding: 2px 6px; color: var(--text); cursor: pointer; margin-bottom: 6px;
+    }
+    .seg-title {
+      width: 100%; background: transparent; border: none;
+      font-size: 12px; font-weight: 500; color: var(--text); font-family: inherit;
+    }
+    .seg-title:focus { outline: none; background: var(--bg2); border-radius: 3px; padding: 2px; margin: -2px; }
+    .seg-desc {
+      width: 100%; background: transparent; border: none; resize: none;
+      font-size: 10px; color: var(--dim); font-family: inherit; margin-top: 4px;
+    }
+    .seg-desc:focus { outline: none; background: var(--bg2); border-radius: 3px; }
+    .seg-notes {
+      width: 100%; background: transparent; border: none;
+      font-size: 9px; color: var(--open-loop); font-style: italic;
+      margin-top: 4px; font-family: inherit;
+    }
+    .seg-notes:focus { outline: none; }
+
+    .seg-delete {
+      position: absolute; top: 4px; right: 4px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--escalate); color: white; border: none;
+      font-size: 10px; cursor: pointer; opacity: 0; transition: opacity 0.15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .seg:hover .seg-delete { opacity: 1; }
+
+    .arrow { color: var(--dim); font-size: 14px; flex-shrink: 0; }
+
+    .add-seg {
+      min-width: 60px; height: 52px; flex-shrink: 0;
+      background: var(--bg2); border: 1px dashed var(--border); border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--dim); font-size: 18px; transition: all 0.15s;
+    }
+    .add-seg:hover { border-color: var(--hook); color: var(--hook); }
+
+    .empty { padding: 60px; text-align: center; color: var(--dim); }
+    .empty h2 { font-size: 18px; margin-bottom: 12px; color: var(--text); }
+
+    @media print {
+      body { background: white; color: #1a1a1a; font-size: 11px; }
+      .header, .filter-bar, .btn, .add-seg, .seg-delete { display: none !important; }
+      .video-row { background: white !important; border-bottom: 1px solid #ddd; }
+      .video-row.hidden { display: none !important; }
+      .seg { background: #f8f8f8 !important; border: 1px solid #ddd; }
+      .legend { background: #f5f5f5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📺 Beat Sheet Editor</h1>
+    <span id="count" style="color: var(--dim)"></span>
+    <div class="header-actions">
+      <button class="btn" onclick="loadFile()">📂 Load JSON</button>
+      <button class="btn btn-green" onclick="saveFile()">💾 Save JSON</button>
+      <button class="btn" onclick="window.print()">🖨️ Print</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <label>Filter by status:</label>
+    <select class="filter-select" id="statusFilter" onchange="applyFilter()">
+      <option value="">All videos</option>
+    </select>
+    <div class="status-counts" id="statusCounts"></div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background: var(--hook)"></div> Hook</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--open-loop)"></div> Open loop</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--loop-back)"></div> Loop back</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--payoff)"></div> Payoff</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--cta)"></div> CTA</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--body)"></div> Body</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--b-story)"></div> B-story</div>
+  </div>
+
+  <div id="videos" class="videos">
+    <div class="empty">
+      <h2>No videos loaded</h2>
+      <p>Click "Load JSON" to open your videos.json file</p>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFile(event)">
+
+  <script>
+    let videos = [];
+    let currentFilter = '';
+    const TYPES = ['hook','intro','open-loop','loop-back','payoff','cta','body','test','escalate','wildcard','b-story','conclusion'];
+
+    function loadFile() { document.getElementById('fileInput').click(); }
+
+    function handleFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          videos = JSON.parse(evt.target.result);
+          buildStatusFilter();
+          render();
+        } catch (err) { alert('Invalid JSON file'); }
+      };
+      reader.readAsText(file);
+    }
+
+    function buildStatusFilter() {
+      const statuses = [...new Set(videos.map(v => v.status || '(no status)'))].sort();
+      const select = document.getElementById('statusFilter');
+      select.innerHTML = '<option value="">All (' + videos.length + ')</option>';
+      statuses.forEach(s => {
+        const count = videos.filter(v => (v.status || '(no status)') === s).length;
+        select.innerHTML += `<option value="${esc(s)}">${esc(s)} (${count})</option>`;
+      });
+      const countsDiv = document.getElementById('statusCounts');
+      countsDiv.innerHTML = statuses.map(s => {
+        const count = videos.filter(v => (v.status || '(no status)') === s).length;
+        return `<span class="status-count" data-status="${esc(s)}" onclick="filterByStatus('${esc(s)}')">${esc(s)}: ${count}</span>`;
+      }).join('');
+    }
+
+    function filterByStatus(status) {
+      currentFilter = status;
+      document.getElementById('statusFilter').value = status;
+      document.querySelectorAll('.status-count').forEach(el => {
+        el.classList.toggle('active', el.dataset.status === status);
+      });
+      applyFilter();
+    }
+
+    function applyFilter() {
+      currentFilter = document.getElementById('statusFilter').value;
+      document.querySelectorAll('.status-count').forEach(el => {
+        el.classList.toggle('active', el.dataset.status === currentFilter);
+      });
+      document.querySelectorAll('.video-row').forEach(row => {
+        const status = row.dataset.status || '(no status)';
+        row.classList.toggle('hidden', currentFilter && status !== currentFilter);
+      });
+      const visible = document.querySelectorAll('.video-row:not(.hidden)').length;
+      document.getElementById('count').textContent = currentFilter 
+        ? `${visible} of ${videos.length} videos` 
+        : `${videos.length} videos`;
+    }
+
+    function saveFile() {
+      collectData();
+      const blob = new Blob([JSON.stringify(videos, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'videos.json';
+      a.click();
+    }
+
+    function collectData() {
+      document.querySelectorAll('.video-row').forEach(row => {
+        const idx = parseInt(row.dataset.index);
+        videos[idx].title = row.querySelector('.video-title').value;
+        videos[idx].roadmap.segments = [];
+        row.querySelectorAll('.seg').forEach((seg, si) => {
+          videos[idx].roadmap.segments.push({
+            id: si + 1,
+            type: seg.dataset.type,
+            title: seg.querySelector('.seg-title').value,
+            desc: seg.querySelector('.seg-desc').value,
+            notes: seg.querySelector('.seg-notes').value
+          });
+        });
+      });
+    }
+
+    function render() {
+      const container = document.getElementById('videos');
+      document.getElementById('count').textContent = `${videos.length} videos`;
+      if (!videos.length) {
+        container.innerHTML = '<div class="empty"><h2>No videos loaded</h2></div>';
+        return;
+      }
+      container.innerHTML = videos.map((v, vi) => `
+        <div class="video-row" data-index="${vi}" data-status="${esc(v.status || '(no status)')}">
+          <div class="video-info">
+            <div class="video-meta">
+              <span class="video-num">#${vi + 1}</span>
+              <span class="video-status">${esc(v.status) || '—'}</span>
+            </div>
+            <input class="video-title" value="${esc(v.title)}" placeholder="Video title...">
+            <div class="video-hook" title="${esc(v.hook)}">${esc(v.hook) || 'No hook'}</div>
+          </div>
+          <div class="segments">
+            ${(v.roadmap?.segments || []).map((s, si) => renderSeg(vi, si, s)).join('<span class="arrow">→</span>')}
+            <div class="add-seg" onclick="addSeg(${vi})">+</div>
+          </div>
+        </div>
+      `).join('');
+      applyFilter();
+    }
+
+    function renderSeg(vi, si, s) {
+      return `
+        <div class="seg ${s.type}" data-type="${s.type}">
+          <button class="seg-delete" onclick="delSeg(${vi},${si})">×</button>
+          <select class="seg-type" onchange="changeType(this)">
+            ${TYPES.map(t => `<option value="${t}" ${t===s.type?'selected':''}>${t.replace('-',' ').toUpperCase()}</option>`).join('')}
+          </select>
+          <input class="seg-title" value="${esc(s.title)}" placeholder="Title...">
+          <textarea class="seg-desc" rows="2" placeholder="Description...">${esc(s.desc)}</textarea>
+          <input class="seg-notes" value="${esc(s.notes)}" placeholder="→ Notes...">
+        </div>`;
+    }
+
+    function changeType(sel) {
+      const seg = sel.closest('.seg');
+      TYPES.forEach(t => seg.classList.remove(t));
+      seg.classList.add(sel.value);
+      seg.dataset.type = sel.value;
+    }
+
+    function addSeg(vi) {
+      collectData();
+      videos[vi].roadmap.segments.push({ id: Date.now(), type: 'body', title: '', desc: '', notes: '' });
+      render();
+    }
+
+    function delSeg(vi, si) {
+      collectData();
+      videos[vi].roadmap.segments.splice(si, 1);
+      render();
+    }
+
+    function esc(str) {
+      if (!str) return '';
+      return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Auto-backup every 30s
+    setInterval(() => {
+      if (videos.length) {
+        collectData();
+        localStorage.setItem('roadmap-backup', JSON.stringify(videos));
+      }
+    }, 30000);
+
+    // Load backup on start
+    try {
+      const backup = localStorage.getItem('roadmap-backup');
+      if (backup) { videos = JSON.parse(backup); buildStatusFilter(); render(); }
+    } catch {}
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "roadmap-sync",
+  "version": "2.0.0",
+  "description": "Beat Sheet Editor with live Notion sync",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.0"
+  }
+}
