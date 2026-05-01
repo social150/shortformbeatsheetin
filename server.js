@@ -270,7 +270,7 @@ function getHTML() {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Beat Sheet Editor</title>
   <!-- tui-image-editor (includes fabric.js + color-picker in bundle) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tui-image-editor@3.15.4/dist/tui-image-editor.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tui-image-editor@3.15.3/dist/tui-image-editor.min.css">
   <!-- QR code generator for print -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <style>
@@ -1379,7 +1379,7 @@ pullFromNotion();
 </script>
 
 <!-- Load tui-image-editor after page is interactive -->
-<script src="https://cdn.jsdelivr.net/npm/tui-image-editor@3.15.4/dist/tui-image-editor.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/tui-image-editor@3.15.3/dist/tui-image-editor.min.js" defer></script>
 </body>
 </html>`;
 }
