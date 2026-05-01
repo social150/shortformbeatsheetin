@@ -1,8 +1,7 @@
 // api/push-all.js — Vercel serverless function
-// Pushes all videos to Notion in parallel batches of 3
 const { Client } = require('@notionhq/client');
+const { FIELD_BEATSHEET, toRichText } = require('./_config');
 
-const FIELD_BEATSHEET = 'Beat Sheet';
 const CONCURRENCY = 3;
 
 module.exports = async (req, res) => {
@@ -21,7 +20,8 @@ module.exports = async (req, res) => {
           page_id: video.id,
           properties: {
             [FIELD_BEATSHEET]: {
-              rich_text: [{ text: { content: JSON.stringify(video.roadmap) } }]
+              // Split JSON across up to 100 x 2000-char elements (~200K chars total)
+              rich_text: toRichText(JSON.stringify(video.roadmap))
             }
           }
         })

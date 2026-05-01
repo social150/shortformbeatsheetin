@@ -1,12 +1,14 @@
 {
   "name": "roadmap-sync",
-  "version": "2.0.0",
-  "description": "Beat Sheet Editor with live Notion sync",
+  "version": "3.0.0",
+  "description": "Beat Sheet Editor — creative suite with Notion sync and Cloudflare R2 media storage",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "@notionhq/client": "^2.2.0"
+    "@notionhq/client": "^2.2.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.0.0"
   }
 }
