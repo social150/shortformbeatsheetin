@@ -895,11 +895,11 @@ function renderMediaPanel(v, vi) {
       '<span class="mp-label">Media</span>' +
       (countStr ? '<span class="mp-count">' + countStr + '</span>' : '') +
       '<div class="mp-actions" onclick="event.stopPropagation()">' +
-        '<button class="btn mp-btn" onclick="openDraw(\'' + pid + '\',' + vi + ')">&#9998; Draw</button>' +
-        '<button class="btn mp-btn" onclick="openImageEdit(\'' + pid + '\',' + vi + ')">&#128444; Image</button>' +
-        '<button class="btn mp-btn mp-btn-record" id="recbtn-' + vi + '" onclick="startRecord(\'' + pid + '\',' + vi + ')">&#9210; Record</button>' +
-        '<button class="btn mp-btn" onclick="uploadFile(\'' + pid + '\',' + vi + ',\'audio\')">&#8593; Audio</button>' +
-        '<button class="btn mp-btn" onclick="uploadFile(\'' + pid + '\',' + vi + ',\'video\')">&#127909; Video</button>' +
+        '<button class="btn mp-btn" onclick="openDraw(' + vi + ')">&#9998; Draw</button>' +
+        '<button class="btn mp-btn" onclick="openImageEdit(' + vi + ')">&#128444; Image</button>' +
+        '<button class="btn mp-btn mp-btn-record" id="recbtn-' + vi + '" onclick="startRecord(' + vi + ')">&#9210; Record</button>' +
+        '<button class="btn mp-btn" onclick="uploadFile(' + vi + ',0)">&#8593; Audio</button>' +
+        '<button class="btn mp-btn" onclick="uploadFile(' + vi + ',1)">&#127909; Video</button>' +
       '</div>' +
     '</div>' +
     '<div class="mp-body" id="mpb-' + vi + '">' + bodyHtml + '</div>' +
@@ -981,7 +981,9 @@ async function confirmUpload(data) {
 }
 
 // Generic file upload (audio or video — images go through the editor)
-function uploadFile(pageId, vi, kind) {
+function uploadFile(vi, kindCode) {
+  const kind = kindCode === 0 ? 'audio' : 'video';
+  const pageId = videos[vi].id;
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = kind === 'audio' ? 'audio/*' : 'video/*';
@@ -998,7 +1000,6 @@ function uploadFile(pageId, vi, kind) {
       if (!videos[vi].mediaIndex) videos[vi].mediaIndex = [];
       videos[vi].mediaIndex.push({ r2_key, block_id, kind, filename: file.name, description, public_url: publicUrl });
       refreshMediaPanelDOM(vi);
-      // Auto-open the panel to show the new item
       const body = document.getElementById('mpb-' + vi);
       if (body && !body.classList.contains('open')) toggleMediaPanel(vi);
       setStatus('saved', kind.charAt(0).toUpperCase() + kind.slice(1) + ' uploaded!');
@@ -1031,8 +1032,9 @@ let mediaRecorder = null;
 let audioChunks   = [];
 let recCtx        = null;  // { pageId, vi }
 
-async function startRecord(pageId, vi) {
+async function startRecord(vi) {
   if (mediaRecorder && mediaRecorder.state === 'recording') { stopRecord(); return; }
+  const pageId = videos[vi].id;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioChunks  = [];
@@ -1077,23 +1079,23 @@ function stopRecord() {
 let tuiEditor = null;
 let editorCtx = null;  // { pageId, vi }
 
-function openDraw(pageId, vi) {
+function openDraw(vi) {
   const canvas = document.createElement('canvas');
   canvas.width = 1200; canvas.height = 700;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, 1200, 700);
-  initEditor(canvas.toDataURL(), pageId, vi);
+  initEditor(canvas.toDataURL(), videos[vi].id, vi);
 }
 
-function openImageEdit(pageId, vi) {
+function openImageEdit(vi) {
   const input = document.createElement('input');
   input.type = 'file'; input.accept = 'image/*';
   input.onchange = e => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => initEditor(ev.target.result, pageId, vi);
+    reader.onload = ev => initEditor(ev.target.result, videos[vi].id, vi);
     reader.readAsDataURL(file);
   };
   input.click();
