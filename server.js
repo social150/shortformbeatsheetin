@@ -269,8 +269,6 @@ function getHTML() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Beat Sheet Editor</title>
-  <!-- tui-image-editor (includes fabric.js + color-picker in bundle) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tui-image-editor@3.15.3/dist/tui-image-editor.min.css">
   <!-- QR code generator for print -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <style>
@@ -472,16 +470,23 @@ function getHTML() {
     #rec-stop { padding: 4px 10px; border: 2px solid rgba(255,255,255,0.6); border-radius: 5px; background: transparent; color: #fff; cursor: pointer; font-size: 12px; }
     #rec-stop:hover { background: rgba(255,255,255,0.2); }
 
-    /* ── Image editor modal ──────────────────────────────────── */
-    #editor-modal {
-      display: none; position: fixed; inset: 0; z-index: 1000;
-      background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
-      padding: 20px;
-    }
+    /* ── Drawing canvas modal ────────────────────────────────── */
+    #editor-modal { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.92); align-items: center; justify-content: center; padding: 16px; }
     #editor-modal.open { display: flex; }
-    .editor-wrap { background: #2b2b38; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; max-width: 95vw; }
-    #tui-editor-container { width: min(1100px, 90vw); height: min(600px, 70vh); }
-    .editor-footer { display: flex; justify-content: flex-end; gap: 10px; }
+    .editor-wrap { background: #1a1a24; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; width: min(1300px, calc(100vw - 32px)); height: min(840px, calc(100vh - 32px)); }
+    .editor-toolbar { display: flex; align-items: center; gap: 14px; padding: 8px 12px; background: #111118; border-bottom: 1px solid #2a2a3a; flex-wrap: wrap; flex-shrink: 0; }
+    .etool-group { display: flex; align-items: center; gap: 5px; }
+    .etool-group + .etool-group { border-left: 1px solid #2a2a3a; padding-left: 14px; }
+    .etool-btn { width: 34px; height: 34px; border: 1px solid #2a2a3a; border-radius: 6px; background: #1e1e28; color: #e8e8ed; cursor: pointer; font-size: 16px; }
+    .etool-btn:hover { border-color: #6b6b80; }
+    .etool-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+    .etool-label { font-size: 11px; color: #6b6b80; margin-right: 2px; }
+    #draw-color { width: 30px; height: 30px; border: 1px solid #2a2a3a; padding: 1px; background: none; cursor: pointer; border-radius: 5px; }
+    #draw-width, #draw-opacity { width: 70px; accent-color: #3b82f6; cursor: pointer; }
+    .etool-val { font-size: 11px; color: #6b6b80; min-width: 28px; }
+    #draw-canvas-wrap { flex: 1; min-height: 0; overflow: hidden; cursor: crosshair; background: #fff; }
+    #draw-canvas-wrap canvas { display: block; }
+    .editor-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 12px; background: #111118; border-top: 1px solid #2a2a3a; flex-shrink: 0; }
 
     /* ── Mobile ──────────────────────────────────────────────── */
     @media (max-width: 768px) {
@@ -600,7 +605,32 @@ function getHTML() {
 <!-- Image/drawing editor modal -->
 <div id="editor-modal">
   <div class="editor-wrap">
-    <div id="tui-editor-container"></div>
+    <div class="editor-toolbar">
+      <div class="etool-group">
+        <button class="etool-btn active" id="etool-pen"    onclick="setDrawTool(\'pen\')"    title="Pen (freehand)">&#9998;</button>
+        <button class="etool-btn"        id="etool-line"   onclick="setDrawTool(\'line\')"   title="Line (Shift=45°)">&#9585;</button>
+        <button class="etool-btn"        id="etool-rect"   onclick="setDrawTool(\'rect\')"   title="Rectangle (Shift=square)">&#9645;</button>
+        <button class="etool-btn"        id="etool-circle" onclick="setDrawTool(\'circle\')" title="Circle (Shift=equal)">&#9711;</button>
+      </div>
+      <div class="etool-group">
+        <span class="etool-label">Color</span>
+        <input type="color" id="draw-color" value="#000000" oninput="updateDrawBrush()">
+        <span class="etool-label">Width</span>
+        <input type="range" id="draw-width" min="1" max="40" value="4" oninput="updateDrawBrush()">
+        <span class="etool-val" id="draw-width-val">4</span>
+        <span class="etool-label">Opacity</span>
+        <input type="range" id="draw-opacity" min="10" max="100" value="100" oninput="updateDrawBrush()">
+        <span class="etool-val" id="draw-opacity-val">100%</span>
+      </div>
+      <div class="etool-group">
+        <button class="etool-btn" onclick="undoDraw()"  title="Undo (&#8984;Z)">&#8617;</button>
+        <button class="etool-btn" onclick="redoDraw()"  title="Redo (&#8984;&#8679;Z)">&#8618;</button>
+        <button class="etool-btn" onclick="clearDraw()" title="Clear all">&#x2715;</button>
+      </div>
+    </div>
+    <div id="draw-canvas-wrap">
+      <canvas id="draw-canvas"></canvas>
+    </div>
     <div class="editor-footer">
       <button class="btn" onclick="cancelEditor()">Cancel</button>
       <button class="btn btn-primary" onclick="saveEditor()">Save &amp; Upload</button>
@@ -1075,90 +1105,180 @@ function stopRecord() {
   if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
 }
 
-// ── Image / drawing editor (tui-image-editor) ────────────────
-let tuiEditor = null;
-let editorCtx = null;  // { pageId, vi }
+// ── Drawing canvas (Fabric.js) ────────────────────────────────
+let fabricCanvas = null;
+let editorCtx    = null;
+let drawTool     = 'pen';
+let drawHistory  = [], drawHistIdx = -1;
+let drawStart    = null, activeShape = null;
+let editorClipboard = null;
 
-function openDraw(vi) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 1200; canvas.height = 700;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, 1200, 700);
-  initEditor(canvas.toDataURL(), videos[vi].id, vi);
+function setDrawTool(tool) {
+  drawTool = tool;
+  document.querySelectorAll('.etool-btn[id^="etool-"]').forEach(function(b) { b.classList.remove('active'); });
+  var btn = document.getElementById('etool-' + tool);
+  if (btn) btn.classList.add('active');
+  if (!fabricCanvas) return;
+  fabricCanvas.isDrawingMode = (tool === 'pen');
+  fabricCanvas.selection = false;
 }
 
+function updateDrawBrush() {
+  var w  = +document.getElementById('draw-width').value;
+  var op = +document.getElementById('draw-opacity').value;
+  document.getElementById('draw-width-val').textContent   = w;
+  document.getElementById('draw-opacity-val').textContent = op + '%';
+  if (!fabricCanvas) return;
+  var col = document.getElementById('draw-color').value;
+  fabricCanvas.freeDrawingBrush.color   = col;
+  fabricCanvas.freeDrawingBrush.width   = w;
+}
+
+function saveDrawState() {
+  if (!fabricCanvas) return;
+  drawHistory = drawHistory.slice(0, drawHistIdx + 1);
+  drawHistory.push(JSON.stringify(fabricCanvas.toJSON()));
+  if (drawHistory.length > 50) drawHistory.shift();
+  drawHistIdx = drawHistory.length - 1;
+}
+
+function undoDraw() {
+  if (!fabricCanvas || drawHistIdx <= 0) return;
+  drawHistIdx--;
+  fabricCanvas.loadFromJSON(JSON.parse(drawHistory[drawHistIdx]), function() { fabricCanvas.renderAll(); });
+}
+
+function redoDraw() {
+  if (!fabricCanvas || drawHistIdx >= drawHistory.length - 1) return;
+  drawHistIdx++;
+  fabricCanvas.loadFromJSON(JSON.parse(drawHistory[drawHistIdx]), function() { fabricCanvas.renderAll(); });
+}
+
+function clearDraw() {
+  if (!fabricCanvas) return;
+  fabricCanvas.getObjects().slice().forEach(function(o) { fabricCanvas.remove(o); });
+  fabricCanvas.backgroundColor = '#ffffff';
+  fabricCanvas.renderAll();
+  saveDrawState();
+}
+
+function openDraw(vi) { initEditor(null, videos[vi].id, vi); }
+
 function openImageEdit(vi) {
-  const input = document.createElement('input');
+  var input = document.createElement('input');
   input.type = 'file'; input.accept = 'image/*';
-  input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => initEditor(ev.target.result, videos[vi].id, vi);
+  input.onchange = function(e) {
+    var file = e.target.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) { initEditor(ev.target.result, videos[vi].id, vi); };
     reader.readAsDataURL(file);
   };
   input.click();
 }
 
 function initEditor(imgDataUrl, pageId, vi) {
-  editorCtx = { pageId, vi };
-  if (tuiEditor) { try { tuiEditor.destroy(); } catch {} tuiEditor = null; }
-  document.getElementById('tui-editor-container').innerHTML = '';
+  if (typeof fabric === 'undefined') { alert('Drawing tools loading — try again in a moment.'); return; }
+  editorCtx = { pageId: pageId, vi: vi };
   document.getElementById('editor-modal').classList.add('open');
+  if (fabricCanvas) { try { fabricCanvas.dispose(); } catch {} fabricCanvas = null; }
+  drawHistory = []; drawHistIdx = -1; activeShape = null; drawStart = null;
 
-  const w = Math.min(window.innerWidth - 80, 1100);
-  const h = Math.min(window.innerHeight - 180, 620);
+  var wrap = document.getElementById('draw-canvas-wrap');
+  var w = wrap.clientWidth || 1100;
+  var h = wrap.clientHeight || 640;
 
-  if (typeof tui === 'undefined' || !tui.ImageEditor) {
-    alert('Image editor is loading — please try again in a moment.');
-    document.getElementById('editor-modal').classList.remove('open');
-    return;
+  fabricCanvas = new fabric.Canvas('draw-canvas', { backgroundColor: '#ffffff', selection: false });
+  fabricCanvas.setWidth(w);
+  fabricCanvas.setHeight(h);
+  updateDrawBrush();
+  setDrawTool('pen');
+
+  if (imgDataUrl) {
+    fabric.Image.fromURL(imgDataUrl, function(img) {
+      var scale = Math.min(w / img.width, h / img.height, 1);
+      img.set({ left: 0, top: 0, scaleX: scale, scaleY: scale, selectable: false, evented: false });
+      fabricCanvas.add(img);
+      fabricCanvas.sendToBack(img);
+      fabricCanvas.renderAll();
+      saveDrawState();
+    });
+  } else {
+    saveDrawState();
   }
 
-  tuiEditor = new tui.ImageEditor('#tui-editor-container', {
-    includeUI: {
-      loadImage: { path: imgDataUrl, name: 'canvas' },
-      menu: ['draw', 'shape', 'text', 'crop', 'flip', 'rotate'],
-      initMenu: 'draw',
-      menuBarPosition: 'left',
-    },
-    cssMaxWidth:  w,
-    cssMaxHeight: h,
-    usageStatistics: false
+  fabricCanvas.on('mouse:down', function(opt) {
+    if (drawTool === 'pen') return;
+    var p   = fabricCanvas.getPointer(opt.e);
+    drawStart = { x: p.x, y: p.y };
+    var col = document.getElementById('draw-color').value;
+    var wid = +document.getElementById('draw-width').value;
+    var op  = +document.getElementById('draw-opacity').value / 100;
+    if (drawTool === 'rect')   activeShape = new fabric.Rect({ left: p.x, top: p.y, width: 0, height: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false });
+    if (drawTool === 'circle') activeShape = new fabric.Ellipse({ left: p.x, top: p.y, rx: 0, ry: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false });
+    if (drawTool === 'line')   activeShape = new fabric.Line([p.x, p.y, p.x, p.y], { stroke: col, strokeWidth: wid, opacity: op, selectable: false });
+    if (activeShape) fabricCanvas.add(activeShape);
   });
+
+  fabricCanvas.on('mouse:move', function(opt) {
+    if (!activeShape || !drawStart) return;
+    var p = fabricCanvas.getPointer(opt.e);
+    var dx = p.x - drawStart.x, dy = p.y - drawStart.y;
+    if (opt.e.shiftKey) {
+      if (drawTool === 'rect' || drawTool === 'circle') { var s = Math.min(Math.abs(dx), Math.abs(dy)); dx = Math.sign(dx)*s; dy = Math.sign(dy)*s; }
+      else if (drawTool === 'line') { var ang = Math.round(Math.atan2(dy, dx)/(Math.PI/4))*(Math.PI/4); var len = Math.sqrt(dx*dx+dy*dy); dx = Math.cos(ang)*len; dy = Math.sin(ang)*len; }
+    }
+    if (drawTool === 'rect')   activeShape.set({ width: Math.abs(dx), height: Math.abs(dy), left: dx<0?drawStart.x+dx:drawStart.x, top: dy<0?drawStart.y+dy:drawStart.y });
+    if (drawTool === 'circle') activeShape.set({ rx: Math.abs(dx)/2, ry: Math.abs(dy)/2, left: dx<0?drawStart.x+dx:drawStart.x, top: dy<0?drawStart.y+dy:drawStart.y });
+    if (drawTool === 'line')   activeShape.set({ x2: drawStart.x+dx, y2: drawStart.y+dy });
+    fabricCanvas.renderAll();
+  });
+
+  fabricCanvas.on('mouse:up', function() {
+    if (activeShape) { activeShape.set({ selectable: true, evented: true }); activeShape = null; drawStart = null; fabricCanvas.renderAll(); saveDrawState(); }
+  });
+
+  fabricCanvas.on('path:created', saveDrawState);
+  document.addEventListener('keydown', onDrawKey);
+}
+
+function onDrawKey(e) {
+  if (!fabricCanvas) return;
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); if (e.shiftKey) redoDraw(); else undoDraw(); }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'c') { var o = fabricCanvas.getActiveObject(); if (o) editorClipboard = o.toObject(); }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'v' && editorClipboard) {
+    fabric.util.enlivenObjects([editorClipboard], function(objs) {
+      objs.forEach(function(o) { o.set({ left: o.left + 20, top: o.top + 20 }); fabricCanvas.add(o); });
+      fabricCanvas.renderAll(); saveDrawState();
+    });
+  }
 }
 
 async function saveEditor() {
-  if (!tuiEditor) return;
-  const dataUrl = tuiEditor.toDataURL({ format: 'png' });
+  if (!fabricCanvas) return;
+  var dataUrl = fabricCanvas.toDataURL({ format: 'png', multiplier: 1 });
   document.getElementById('editor-modal').classList.remove('open');
-  const ctx = editorCtx;
-  editorCtx = null;
-
-  const blob = await fetch(dataUrl).then(r => r.blob());
-  const filename = 'image-' + Date.now() + '.png';
+  document.removeEventListener('keydown', onDrawKey);
+  var ctx = editorCtx; editorCtx = null;
+  var blob = await fetch(dataUrl).then(function(r) { return r.blob(); });
+  var filename = 'image-' + Date.now() + '.png';
   setStatus('syncing', 'Uploading image...');
   try {
-    const { uploadUrl, publicUrl, r2_key } = await getUploadUrl(ctx.pageId, filename, 'image');
-    await doUpload(blob, uploadUrl, 'image/png');
-    const { block_id } = await confirmUpload({ notion_id: ctx.pageId, r2_key, public_url: publicUrl, kind: 'image', filename });
+    var up   = await getUploadUrl(ctx.pageId, filename, 'image');
+    await doUpload(blob, up.uploadUrl, 'image/png');
+    var conf = await confirmUpload({ notion_id: ctx.pageId, r2_key: up.r2_key, public_url: up.publicUrl, kind: 'image', filename: filename });
     if (!videos[ctx.vi].mediaIndex) videos[ctx.vi].mediaIndex = [];
-    videos[ctx.vi].mediaIndex.push({ r2_key, block_id, kind: 'image', filename, description: '', public_url: publicUrl });
+    videos[ctx.vi].mediaIndex.push({ r2_key: up.r2_key, block_id: conf.block_id, kind: 'image', filename: filename, description: '', public_url: up.publicUrl });
     refreshMediaPanelDOM(ctx.vi);
-    const body = document.getElementById('mpb-' + ctx.vi);
-    if (body && !body.classList.contains('open')) toggleMediaPanel(ctx.vi);
-    setStatus('saved', 'Image saved!');
-    setTimeout(() => setStatus('', 'Ready'), 2000);
+    var body = document.getElementById('mpb-' + ctx.vi); if (body && !body.classList.contains('open')) toggleMediaPanel(ctx.vi);
+    setStatus('saved', 'Image saved!'); setTimeout(function() { setStatus('', 'Ready'); }, 2000);
   } catch (err) { setStatus('error', err.message); }
-
-  try { tuiEditor.destroy(); } catch {}
-  tuiEditor = null;
+  try { fabricCanvas.dispose(); } catch {} fabricCanvas = null;
 }
 
 function cancelEditor() {
   document.getElementById('editor-modal').classList.remove('open');
-  if (tuiEditor) { try { tuiEditor.destroy(); } catch {} tuiEditor = null; }
+  document.removeEventListener('keydown', onDrawKey);
+  try { if (fabricCanvas) { fabricCanvas.dispose(); fabricCanvas = null; } } catch {}
   editorCtx = null;
 }
 
@@ -1378,8 +1498,8 @@ initScale();
 pullFromNotion();
 </script>
 
-<!-- Load tui-image-editor after page is interactive -->
-<script src="https://cdn.jsdelivr.net/npm/tui-image-editor@3.15.3/dist/tui-image-editor.min.js" defer></script>
+<!-- Fabric.js canvas library (drawing/image editor) -->
+<script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js" defer></script>
 </body>
 </html>`;
 }
