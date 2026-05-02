@@ -611,6 +611,9 @@ function getHTML() {
         <button class="etool-btn"        id="etool-line"   onclick="setDrawTool(\'line\')"   title="Line (Shift=45°)">&#9585;</button>
         <button class="etool-btn"        id="etool-rect"   onclick="setDrawTool(\'rect\')"   title="Rectangle (Shift=square)">&#9645;</button>
         <button class="etool-btn"        id="etool-circle" onclick="setDrawTool(\'circle\')" title="Circle (Shift=equal)">&#9711;</button>
+        <button class="etool-btn"        id="etool-select" onclick="setDrawTool(\'select\')" title="Select &amp; Move">&#8598;</button>
+        <button class="etool-btn"        id="etool-eraser" onclick="setDrawTool(\'eraser\')" title="Eraser">&#9003;</button>
+        <button class="etool-btn"        id="etool-fill"   onclick="setDrawTool(\'fill\')"   title="Paint Bucket">&#127798;</button>
       </div>
       <div class="etool-group">
         <span class="etool-label">Color</span>
@@ -1113,14 +1116,30 @@ let drawHistory  = [], drawHistIdx = -1;
 let drawStart    = null, activeShape = null;
 let editorClipboard = null;
 
+function hexToRgba(hex, alpha) {
+  var r = parseInt(hex.slice(1,3), 16), g = parseInt(hex.slice(3,5), 16), b = parseInt(hex.slice(5,7), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha.toFixed(2) + ')';
+}
+
 function setDrawTool(tool) {
+  var prev = drawTool;
   drawTool = tool;
   document.querySelectorAll('.etool-btn[id^="etool-"]').forEach(function(b) { b.classList.remove('active'); });
   var btn = document.getElementById('etool-' + tool);
   if (btn) btn.classList.add('active');
   if (!fabricCanvas) return;
-  fabricCanvas.isDrawingMode = (tool === 'pen');
-  fabricCanvas.selection = false;
+  if (prev === 'select' && tool !== 'select') {
+    fabricCanvas.discardActiveObject();
+    fabricCanvas.getObjects().forEach(function(o) { o.set({ selectable: false }); });
+    fabricCanvas.renderAll();
+  }
+  fabricCanvas.isDrawingMode = (tool === 'pen' || tool === 'eraser');
+  fabricCanvas.selection = (tool === 'select');
+  if (tool === 'select') {
+    fabricCanvas.getObjects().forEach(function(o) { o.set({ selectable: true, evented: true }); });
+    fabricCanvas.renderAll();
+  }
+  updateDrawBrush();
 }
 
 function updateDrawBrush() {
@@ -1130,8 +1149,13 @@ function updateDrawBrush() {
   document.getElementById('draw-opacity-val').textContent = op + '%';
   if (!fabricCanvas) return;
   var col = document.getElementById('draw-color').value;
-  fabricCanvas.freeDrawingBrush.color   = col;
-  fabricCanvas.freeDrawingBrush.width   = w;
+  if (drawTool === 'eraser') {
+    fabricCanvas.freeDrawingBrush.color = '#ffffff';
+    fabricCanvas.freeDrawingBrush.width = w * 2;
+  } else {
+    fabricCanvas.freeDrawingBrush.color = op < 100 ? hexToRgba(col, op / 100) : col;
+    fabricCanvas.freeDrawingBrush.width = w;
+  }
 }
 
 function saveDrawState() {
@@ -1207,15 +1231,21 @@ function initEditor(imgDataUrl, pageId, vi) {
   }
 
   fabricCanvas.on('mouse:down', function(opt) {
-    if (drawTool === 'pen') return;
+    if (drawTool === 'pen' || drawTool === 'eraser' || drawTool === 'select') return;
+    if (drawTool === 'fill') {
+      var col = document.getElementById('draw-color').value;
+      if (opt.target) { opt.target.set('fill', col); }
+      else { fabricCanvas.backgroundColor = col; }
+      fabricCanvas.renderAll(); saveDrawState(); return;
+    }
     var p   = fabricCanvas.getPointer(opt.e);
     drawStart = { x: p.x, y: p.y };
     var col = document.getElementById('draw-color').value;
     var wid = +document.getElementById('draw-width').value;
     var op  = +document.getElementById('draw-opacity').value / 100;
-    if (drawTool === 'rect')   activeShape = new fabric.Rect({ left: p.x, top: p.y, width: 0, height: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false });
-    if (drawTool === 'circle') activeShape = new fabric.Ellipse({ left: p.x, top: p.y, rx: 0, ry: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false });
-    if (drawTool === 'line')   activeShape = new fabric.Line([p.x, p.y, p.x, p.y], { stroke: col, strokeWidth: wid, opacity: op, selectable: false });
+    if (drawTool === 'rect')   activeShape = new fabric.Rect({ left: p.x, top: p.y, width: 0, height: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false, evented: true });
+    if (drawTool === 'circle') activeShape = new fabric.Ellipse({ left: p.x, top: p.y, rx: 0, ry: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false, evented: true });
+    if (drawTool === 'line')   activeShape = new fabric.Line([p.x, p.y, p.x, p.y], { stroke: col, strokeWidth: wid, opacity: op, selectable: false, evented: true });
     if (activeShape) fabricCanvas.add(activeShape);
   });
 
@@ -1234,10 +1264,13 @@ function initEditor(imgDataUrl, pageId, vi) {
   });
 
   fabricCanvas.on('mouse:up', function() {
-    if (activeShape) { activeShape.set({ selectable: true, evented: true }); activeShape = null; drawStart = null; fabricCanvas.renderAll(); saveDrawState(); }
+    if (activeShape) { activeShape.set({ selectable: false, evented: true }); activeShape = null; drawStart = null; fabricCanvas.renderAll(); saveDrawState(); }
   });
 
-  fabricCanvas.on('path:created', saveDrawState);
+  fabricCanvas.on('path:created', function(e) {
+    if (e.path) e.path.set({ selectable: false, evented: true });
+    saveDrawState();
+  });
   document.addEventListener('keydown', onDrawKey);
 }
 
