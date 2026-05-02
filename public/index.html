@@ -182,6 +182,7 @@
     #draw-color { width: 30px; height: 30px; border: 1px solid #2a2a3a; padding: 1px; background: none; cursor: pointer; border-radius: 5px; }
     #draw-width, #draw-opacity { width: 70px; accent-color: #3b82f6; cursor: pointer; }
     .etool-val { font-size: 11px; color: #6b6b80; min-width: 28px; }
+    .etool-numval { width: 44px; background: #1e1e28; border: 1px solid #2a2a3a; color: #e8e8ed; border-radius: 4px; padding: 2px 4px; font-size: 12px; text-align: center; }
     #draw-canvas-wrap { flex: 1; min-height: 0; overflow: hidden; cursor: crosshair; background: #fff; }
     #draw-canvas-wrap canvas { display: block; }
     .editor-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 12px; background: #111118; border-top: 1px solid #2a2a3a; flex-shrink: 0; }
@@ -276,9 +277,9 @@
         <button class="etool-btn"        id="etool-line"   onclick="setDrawTool('line')"   title="Line (Shift=45°)">&#9585;</button>
         <button class="etool-btn"        id="etool-rect"   onclick="setDrawTool('rect')"   title="Rectangle (Shift=square)">&#9645;</button>
         <button class="etool-btn"        id="etool-circle" onclick="setDrawTool('circle')" title="Circle (Shift=equal)">&#9711;</button>
-        <button class="etool-btn"        id="etool-select" onclick="setDrawTool('select')" title="Select &amp; Move">&#8598;</button>
-        <button class="etool-btn"        id="etool-eraser" onclick="setDrawTool('eraser')" title="Eraser">&#9003;</button>
-        <button class="etool-btn"        id="etool-fill"   onclick="setDrawTool('fill')"   title="Paint Bucket">&#127798;</button>
+        <button class="etool-btn"        id="etool-select" onclick="setDrawTool('select')" title="Select &amp; Move"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 3l14 9-7.5 2-2 7.5z"/></svg></button>
+        <button class="etool-btn"        id="etool-eraser" onclick="setDrawTool('eraser')" title="Eraser"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M20 20H7L3 16 13 6l7 7-2.5 2.5"/><path d="M6 11l7 7"/></svg></button>
+        <button class="etool-btn"        id="etool-fill"   onclick="setDrawTool('fill')"   title="Paint Bucket"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M19 11L8.93 1 2 7.93 12.07 18 19 11z"/><path d="M18 12l-6 6"/><circle cx="21" cy="19" r="2" fill="currentColor" stroke="none"/></svg></button>
       </div>
       <div class="etool-group">
         <span class="etool-label">Color</span>
@@ -291,9 +292,16 @@
         <span class="etool-val" id="draw-opacity-val">100%</span>
       </div>
       <div class="etool-group">
-        <button class="etool-btn" onclick="undoDraw()"  title="Undo (&#8984;Z)">&#8617;</button>
-        <button class="etool-btn" onclick="redoDraw()"  title="Redo (&#8984;&#8679;Z)">&#8618;</button>
-        <button class="etool-btn" onclick="clearDraw()" title="Clear all">&#x2715;</button>
+        <button class="etool-btn" onclick="undoDraw()"       title="Undo (&#8984;Z)">&#8617;</button>
+        <button class="etool-btn" onclick="redoDraw()"       title="Redo (&#8984;&#8679;Z)">&#8618;</button>
+        <button class="etool-btn" onclick="clearDraw()"      title="Clear all">&#x2715;</button>
+        <button class="etool-btn" onclick="deleteSelected()" title="Delete selected (Del)">&#128465;</button>
+      </div>
+      <div class="etool-group" style="margin-left:auto;gap:6px">
+        <span class="etool-label">Zoom</span>
+        <input type="range" id="draw-zoom" min="25" max="400" value="100" oninput="setDrawZoom(this.value)" style="width:70px;accent-color:#3b82f6;cursor:pointer">
+        <input type="number" id="draw-zoom-val" class="etool-numval" min="25" max="400" value="100" onchange="setDrawZoom(this.value)">
+        <span class="etool-label">%</span>
       </div>
     </div>
     <div id="draw-canvas-wrap">
@@ -642,13 +650,15 @@ function setDrawTool(tool) {
   if (!fabricCanvas) return;
   if (prev === 'select' && tool !== 'select') {
     fabricCanvas.discardActiveObject();
-    fabricCanvas.getObjects().forEach(o => o.set({ selectable: false }));
+    fabricCanvas.getObjects().forEach(o => o.set({ selectable: false, lockMovementX: true, lockMovementY: true }));
+    fabricCanvas.selection = false;
     fabricCanvas.renderAll();
   }
   fabricCanvas.isDrawingMode = (tool === 'pen' || tool === 'eraser');
   fabricCanvas.selection = (tool === 'select');
+  fabricCanvas.defaultCursor = tool === 'select' ? 'default' : tool === 'fill' ? 'cell' : 'crosshair';
   if (tool === 'select') {
-    fabricCanvas.getObjects().forEach(o => o.set({ selectable: true, evented: true }));
+    fabricCanvas.getObjects().forEach(o => o.set({ selectable: true, evented: true, lockMovementX: false, lockMovementY: false }));
     fabricCanvas.renderAll();
   }
   updateDrawBrush();
@@ -695,6 +705,8 @@ function initEditor(imgDataUrl, pageId, vi) {
   fabricCanvas = new fabric.Canvas('draw-canvas', { backgroundColor: '#ffffff', selection: false });
   fabricCanvas.setWidth(w); fabricCanvas.setHeight(h);
   updateDrawBrush(); setDrawTool('pen');
+  const zs = document.getElementById('draw-zoom'), zv = document.getElementById('draw-zoom-val');
+  if (zs) zs.value = 100; if (zv) zv.value = 100;
   if (imgDataUrl) {
     fabric.Image.fromURL(imgDataUrl, img => {
       const scale = Math.min(w / img.width, h / img.height, 1);
@@ -705,16 +717,16 @@ function initEditor(imgDataUrl, pageId, vi) {
   fabricCanvas.on('mouse:down', opt => {
     if (drawTool === 'pen' || drawTool === 'eraser' || drawTool === 'select') return;
     if (drawTool === 'fill') {
-      const col = document.getElementById('draw-color').value;
-      if (opt.target) { opt.target.set('fill', col); }
-      else { fabricCanvas.backgroundColor = col; }
+      const fc = document.getElementById('draw-color').value, t = opt.target;
+      if (t && (t.type === 'rect' || t.type === 'ellipse')) { t.set('fill', fc); }
+      else if (!t) { fabricCanvas.backgroundColor = fc; }
       fabricCanvas.renderAll(); saveDrawState(); return;
     }
     const p = fabricCanvas.getPointer(opt.e); drawStart = { x: p.x, y: p.y };
     const col = document.getElementById('draw-color').value, wid = +document.getElementById('draw-width').value, op = +document.getElementById('draw-opacity').value / 100;
-    if (drawTool === 'rect')   activeShape = new fabric.Rect({ left: p.x, top: p.y, width: 0, height: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false, evented: true });
-    if (drawTool === 'circle') activeShape = new fabric.Ellipse({ left: p.x, top: p.y, rx: 0, ry: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false, evented: true });
-    if (drawTool === 'line')   activeShape = new fabric.Line([p.x, p.y, p.x, p.y], { stroke: col, strokeWidth: wid, opacity: op, selectable: false, evented: true });
+    if (drawTool === 'rect')   activeShape = new fabric.Rect({ left: p.x, top: p.y, width: 0, height: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false, evented: true, lockMovementX: true, lockMovementY: true });
+    if (drawTool === 'circle') activeShape = new fabric.Ellipse({ left: p.x, top: p.y, rx: 0, ry: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false, evented: true, lockMovementX: true, lockMovementY: true });
+    if (drawTool === 'line')   activeShape = new fabric.Line([p.x, p.y, p.x, p.y], { stroke: col, strokeWidth: wid, opacity: op, selectable: false, evented: true, lockMovementX: true, lockMovementY: true });
     if (activeShape) fabricCanvas.add(activeShape);
   });
   fabricCanvas.on('mouse:move', opt => {
@@ -729,13 +741,31 @@ function initEditor(imgDataUrl, pageId, vi) {
     if (drawTool === 'line')   activeShape.set({ x2: drawStart.x+dx, y2: drawStart.y+dy });
     fabricCanvas.renderAll();
   });
-  fabricCanvas.on('mouse:up', () => { if (activeShape) { activeShape.set({ selectable: false, evented: true }); activeShape = null; drawStart = null; fabricCanvas.renderAll(); saveDrawState(); } });
-  fabricCanvas.on('path:created', e => { if (e.path) e.path.set({ selectable: false, evented: true }); saveDrawState(); });
+  fabricCanvas.on('mouse:up', () => { if (activeShape) { activeShape.set({ selectable: false, evented: true, lockMovementX: true, lockMovementY: true }); activeShape = null; drawStart = null; fabricCanvas.renderAll(); saveDrawState(); } });
+  fabricCanvas.on('path:created', e => { if (e.path) e.path.set({ selectable: false, evented: true, lockMovementX: true, lockMovementY: true }); saveDrawState(); });
   document.addEventListener('keydown', onDrawKey);
+}
+function deleteSelected() {
+  if (!fabricCanvas) return;
+  const objs = fabricCanvas.getActiveObjects();
+  if (objs && objs.length) {
+    objs.forEach(o => fabricCanvas.remove(o));
+    fabricCanvas.discardActiveObject();
+    fabricCanvas.renderAll();
+    saveDrawState();
+  }
+}
+function setDrawZoom(val) {
+  val = Math.max(25, Math.min(400, +val || 100));
+  const zs = document.getElementById('draw-zoom'), zv = document.getElementById('draw-zoom-val');
+  if (zs) zs.value = val; if (zv) zv.value = val;
+  if (!fabricCanvas) return;
+  fabricCanvas.zoomToPoint(new fabric.Point(fabricCanvas.getWidth() / 2, fabricCanvas.getHeight() / 2), val / 100);
 }
 function onDrawKey(e) {
   if (!fabricCanvas) return;
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redoDraw() : undoDraw(); }
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
   if ((e.metaKey || e.ctrlKey) && e.key === 'c') { const o = fabricCanvas.getActiveObject(); if (o) editorClipboard = o.toObject(); }
   if ((e.metaKey || e.ctrlKey) && e.key === 'v' && editorClipboard) {
     fabric.util.enlivenObjects([editorClipboard], objs => { objs.forEach(o => { o.set({ left: o.left+20, top: o.top+20 }); fabricCanvas.add(o); }); fabricCanvas.renderAll(); saveDrawState(); });
