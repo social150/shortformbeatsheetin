@@ -1198,48 +1198,58 @@ function rasterizeCanvas(callback) {
 }
 
 function canvasSnapshot() {
-  // toCanvasElement(1) renders ALL objects synchronously at logical size,
-  // using the current viewportTransform — no lower-canvas / rAF dependency.
-  return fabricCanvas.toCanvasElement(1);
+  // Compute bounding box across ALL objects so content drawn outside the
+  // default canvas bounds (when zoomed out and panned) is not clipped.
+  var minX = 0, minY = 0, maxX = fabricCanvas.getWidth(), maxY = fabricCanvas.getHeight();
+  fabricCanvas.getObjects().forEach(function(o) {
+    var r = o.getBoundingRect(false, true);
+    if (r.left < minX) minX = Math.floor(r.left) - 2;
+    if (r.top  < minY) minY = Math.floor(r.top)  - 2;
+    if (r.left + r.width  > maxX) maxX = Math.ceil(r.left + r.width)  + 2;
+    if (r.top  + r.height > maxY) maxY = Math.ceil(r.top  + r.height) + 2;
+  });
+  var cvs = fabricCanvas.toCanvasElement(1, { left: minX, top: minY, width: maxX - minX, height: maxY - minY });
+  return { cvs: cvs, ox: minX, oy: minY };
 }
 function applySnapshot(snap, savedVT) {
+  var cvs = snap.cvs || snap;
+  var ox = snap.ox || 0, oy = snap.oy || 0;
   fabricCanvas.setViewportTransform(savedVT);
   fabricCanvas.getObjects().slice().forEach(function(o){ fabricCanvas.remove(o); });
   var bgImg = new Image();
   bgImg.onload = function() {
-    var fImg = new fabric.Image(bgImg, { left:0, top:0, selectable:false, evented:false, _isBackground:true });
+    var fImg = new fabric.Image(bgImg, { left: ox, top: oy, selectable:false, evented:false, _isBackground:true });
     fabricCanvas.backgroundColor = '#ffffff';
     fabricCanvas.add(fImg);
     fabricCanvas.sendToBack(fImg);
     fabricCanvas.renderAll();
     saveDrawState();
   };
-  bgImg.src = snap.toDataURL();
+  bgImg.src = cvs.toDataURL();
 }
 
 function floodFill(e) {
   if (!fabricCanvas) return;
   var savedVT = fabricCanvas.viewportTransform.slice();
-  // Map click to canvas logical coordinates via inverse viewport transform
   var bounds = fabricCanvas.upperCanvasEl.getBoundingClientRect();
   var px = Math.round((e.clientX - bounds.left - savedVT[4]) / savedVT[0]);
   var py = Math.round((e.clientY - bounds.top  - savedVT[5]) / savedVT[3]);
-  // Render at identity then grab offscreen canvas at logical size (bypasses DPR entirely)
   fabricCanvas.setViewportTransform([1,0,0,1,0,0]);
-  fabricCanvas.renderAll();
-  var off = canvasSnapshot();
+  var snap = canvasSnapshot();
+  var off = snap.cvs, ox = snap.ox, oy = snap.oy;
   var w = off.width, h = off.height;
-  if (px < 0 || py < 0 || px >= w || py >= h) { fabricCanvas.setViewportTransform(savedVT); fabricCanvas.renderAll(); return; }
+  var spx = px - ox, spy = py - oy;
+  if (spx < 0 || spy < 0 || spx >= w || spy >= h) { fabricCanvas.setViewportTransform(savedVT); return; }
   var ctx = off.getContext('2d');
   var id = ctx.getImageData(0, 0, w, h), d = id.data;
-  var s = (py*w+px)*4, tR=d[s], tG=d[s+1], tB=d[s+2];
+  var s = (spy*w+spx)*4, tR=d[s], tG=d[s+1], tB=d[s+2];
   var hex = document.getElementById('draw-color').value;
   var fR=parseInt(hex.slice(1,3),16), fG=parseInt(hex.slice(3,5),16), fB=parseInt(hex.slice(5,7),16);
-  if (tR===fR && tG===fG && tB===fB) { fabricCanvas.setViewportTransform(savedVT); fabricCanvas.renderAll(); return; }
+  if (tR===fR && tG===fG && tB===fB) { fabricCanvas.setViewportTransform(savedVT); return; }
   var tol=30;
   function hit(i){return Math.abs(d[i]-tR)<=tol&&Math.abs(d[i+1]-tG)<=tol&&Math.abs(d[i+2]-tB)<=tol;}
   var q=new Int32Array(w*h), qh=0, qt=0, vis=new Uint8Array(w*h);
-  q[qt++]=px+py*w; vis[px+py*w]=1;
+  q[qt++]=spx+spy*w; vis[spx+spy*w]=1;
   while(qh<qt){
     var pos=q[qh++], cx=pos%w, cy=(pos/w)|0, i4=pos*4;
     d[i4]=fR;d[i4+1]=fG;d[i4+2]=fB;d[i4+3]=255;
@@ -1249,7 +1259,7 @@ function floodFill(e) {
     if(cy<h-1 &&!vis[pos+w] &&hit((pos+w)*4)){vis[pos+w]=1;q[qt++]=pos+w;}
   }
   ctx.putImageData(id, 0, 0);
-  applySnapshot(off, savedVT);
+  applySnapshot(snap, savedVT);
 }
 
 function applyErase() {
@@ -1258,9 +1268,8 @@ function applyErase() {
   var brushW = +document.getElementById('draw-width').value;
   var savedVT = fabricCanvas.viewportTransform.slice();
   fabricCanvas.setViewportTransform([1,0,0,1,0,0]);
-  fabricCanvas.renderAll();
-  // Use offscreen canvas at logical size — no DPR math needed, erasePoints are already in logical coords
-  var off = canvasSnapshot();
+  var snap = canvasSnapshot();
+  var off = snap.cvs, ox = snap.ox, oy = snap.oy;
   var ctx = off.getContext('2d');
   ctx.globalCompositeOperation = 'destination-out';
   ctx.fillStyle = 'rgba(0,0,0,1)';
@@ -1268,14 +1277,14 @@ function applyErase() {
   ctx.lineWidth = brushW * 2;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   if (erasePoints.length === 1) {
-    ctx.beginPath(); ctx.arc(erasePoints[0].x, erasePoints[0].y, brushW, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(erasePoints[0].x - ox, erasePoints[0].y - oy, brushW, 0, Math.PI*2); ctx.fill();
   } else {
-    ctx.beginPath(); ctx.moveTo(erasePoints[0].x, erasePoints[0].y);
-    for (var i=1; i<erasePoints.length; i++) ctx.lineTo(erasePoints[i].x, erasePoints[i].y);
+    ctx.beginPath(); ctx.moveTo(erasePoints[0].x - ox, erasePoints[0].y - oy);
+    for (var i=1; i<erasePoints.length; i++) ctx.lineTo(erasePoints[i].x - ox, erasePoints[i].y - oy);
     ctx.stroke();
   }
   erasePoints = []; isErasing = false;
-  applySnapshot(off, savedVT);
+  applySnapshot(snap, savedVT);
 }
 
 function hexToRgba(hex, alpha) {
