@@ -638,16 +638,81 @@ let fabricCanvas = null, editorCtx = null;
 let drawTool = 'pen', drawHistory = [], drawHistIdx = -1;
 let drawStart = null, activeShape = null, editorClipboard = null;
 let isPanning = false, panLastX = 0, panLastY = 0;
+let erasePoints = [], isErasing = false;
 
-function doErase(e) {
+function floodFill(e) {
   if (!fabricCanvas) return;
-  const target = fabricCanvas.findTarget(e);
-  if (target && !target._isBackground) {
-    fabricCanvas.remove(target);
-    fabricCanvas.discardActiveObject();
-    fabricCanvas.renderAll();
-    saveDrawState();
+  const savedVT = fabricCanvas.viewportTransform.slice();
+  const fp = fabricCanvas.getPointer(e);
+  fabricCanvas.setViewportTransform([1,0,0,1,0,0]);
+  fabricCanvas.renderAll();
+  const lc = fabricCanvas.lowerCanvasEl;
+  const dpr = lc.width / fabricCanvas.getWidth();
+  const px = Math.round(fp.x * dpr), py = Math.round(fp.y * dpr);
+  const lw = lc.width, lh = lc.height;
+  if (px<0||py<0||px>=lw||py>=lh) { fabricCanvas.setViewportTransform(savedVT); fabricCanvas.renderAll(); return; }
+  const ctx = lc.getContext('2d');
+  const id = ctx.getImageData(0,0,lw,lh), d = id.data;
+  const s=(py*lw+px)*4, tR=d[s], tG=d[s+1], tB=d[s+2];
+  const hex=document.getElementById('draw-color').value;
+  const fR=parseInt(hex.slice(1,3),16), fG=parseInt(hex.slice(3,5),16), fB=parseInt(hex.slice(5,7),16);
+  if (tR===fR&&tG===fG&&tB===fB) { fabricCanvas.setViewportTransform(savedVT); fabricCanvas.renderAll(); return; }
+  const tol=30;
+  const hit=i=>Math.abs(d[i]-tR)<=tol&&Math.abs(d[i+1]-tG)<=tol&&Math.abs(d[i+2]-tB)<=tol;
+  const q=new Int32Array(lw*lh); let qh=0, qt=0;
+  const vis=new Uint8Array(lw*lh);
+  q[qt++]=px+py*lw; vis[px+py*lw]=1;
+  while(qh<qt){
+    const pos=q[qh++], cx=pos%lw, cy=(pos/lw)|0, i4=pos*4;
+    d[i4]=fR;d[i4+1]=fG;d[i4+2]=fB;d[i4+3]=255;
+    if(cx>0   &&!vis[pos-1] &&hit((pos-1)*4)){vis[pos-1]=1;q[qt++]=pos-1;}
+    if(cx<lw-1&&!vis[pos+1] &&hit((pos+1)*4)){vis[pos+1]=1;q[qt++]=pos+1;}
+    if(cy>0   &&!vis[pos-lw]&&hit((pos-lw)*4)){vis[pos-lw]=1;q[qt++]=pos-lw;}
+    if(cy<lh-1&&!vis[pos+lw]&&hit((pos+lw)*4)){vis[pos+lw]=1;q[qt++]=pos+lw;}
   }
+  ctx.putImageData(id,0,0);
+  const snap=lc.toDataURL();
+  fabricCanvas.setViewportTransform(savedVT);
+  fabricCanvas.getObjects().slice().forEach(o=>fabricCanvas.remove(o));
+  const bgImg=new Image();
+  bgImg.onload=()=>{
+    const fImg=new fabric.Image(bgImg,{left:0,top:0,scaleX:fabricCanvas.getWidth()/bgImg.naturalWidth,scaleY:fabricCanvas.getHeight()/bgImg.naturalHeight,selectable:false,evented:false,_isBackground:true});
+    fabricCanvas.backgroundColor='#ffffff';fabricCanvas.add(fImg);fabricCanvas.sendToBack(fImg);fabricCanvas.renderAll();saveDrawState();
+  };
+  bgImg.src=snap;
+}
+
+function applyErase() {
+  if (!erasePoints.length||!fabricCanvas) return;
+  const w = +document.getElementById('draw-width').value;
+  const savedVT = fabricCanvas.viewportTransform.slice();
+  fabricCanvas.setViewportTransform([1,0,0,1,0,0]);
+  fabricCanvas.renderAll();
+  const lc = fabricCanvas.lowerCanvasEl;
+  const dpr = lc.width / fabricCanvas.getWidth();
+  const ctx = lc.getContext('2d');
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = 'rgba(0,0,0,1)'; ctx.strokeStyle = 'rgba(0,0,0,1)';
+  ctx.lineWidth = w*dpr*2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (erasePoints.length===1) {
+    ctx.beginPath(); ctx.arc(erasePoints[0].x*dpr, erasePoints[0].y*dpr, w*dpr, 0, Math.PI*2); ctx.fill();
+  } else {
+    ctx.beginPath(); ctx.moveTo(erasePoints[0].x*dpr, erasePoints[0].y*dpr);
+    erasePoints.forEach((p,i)=>{ if(i>0) ctx.lineTo(p.x*dpr,p.y*dpr); });
+    ctx.stroke();
+  }
+  ctx.restore();
+  const snap = lc.toDataURL();
+  fabricCanvas.setViewportTransform(savedVT);
+  fabricCanvas.getObjects().slice().forEach(o=>fabricCanvas.remove(o));
+  const bgImg=new Image();
+  bgImg.onload=()=>{
+    const fImg=new fabric.Image(bgImg,{left:0,top:0,scaleX:fabricCanvas.getWidth()/bgImg.naturalWidth,scaleY:fabricCanvas.getHeight()/bgImg.naturalHeight,selectable:false,evented:false,_isBackground:true});
+    fabricCanvas.backgroundColor='#ffffff';fabricCanvas.add(fImg);fabricCanvas.sendToBack(fImg);fabricCanvas.renderAll();saveDrawState();
+  };
+  bgImg.src=snap;
+  erasePoints=[]; isErasing=false;
 }
 
 function hexToRgba(hex, alpha) {
@@ -706,7 +771,7 @@ function initEditor(imgDataUrl, pageId, vi) {
   editorCtx = { pageId, vi };
   document.getElementById('editor-modal').classList.add('open');
   if (fabricCanvas) { try { fabricCanvas.dispose(); } catch {} fabricCanvas = null; }
-  drawHistory = []; drawHistIdx = -1; activeShape = null; drawStart = null; isPanning = false;
+  drawHistory = []; drawHistIdx = -1; activeShape = null; drawStart = null; isPanning = false; erasePoints = []; isErasing = false;
   const wrap = document.getElementById('draw-canvas-wrap');
   const w = wrap.clientWidth || 1100, h = wrap.clientHeight || 640;
   fabricCanvas = new fabric.Canvas('draw-canvas', { backgroundColor: '#ffffff', selection: false });
@@ -723,17 +788,12 @@ function initEditor(imgDataUrl, pageId, vi) {
   } else { saveDrawState(); }
   fabricCanvas.on('mouse:down', opt => {
     if (drawTool === 'pen') return;
-    if (drawTool === 'eraser') { doErase(opt.e); return; }
+    if (drawTool === 'eraser') { isErasing = true; erasePoints = [fabricCanvas.getPointer(opt.e)]; return; }
     if (drawTool === 'select') {
-      if (!opt.target) { isPanning = true; panLastX = opt.e.clientX; panLastY = opt.e.clientY; fabricCanvas.defaultCursor = 'grabbing'; }
+      if (!opt.target && !opt.e.shiftKey) { isPanning = true; panLastX = opt.e.clientX; panLastY = opt.e.clientY; fabricCanvas.defaultCursor = 'grabbing'; }
       return;
     }
-    if (drawTool === 'fill') {
-      const fc = document.getElementById('draw-color').value, t = opt.target;
-      if (t && (t.type === 'rect' || t.type === 'ellipse')) { t.set('fill', fc); }
-      else { fabricCanvas.backgroundColor = fc; }
-      fabricCanvas.renderAll(); saveDrawState(); return;
-    }
+    if (drawTool === 'fill') { floodFill(opt.e); return; }
     const p = fabricCanvas.getPointer(opt.e); drawStart = { x: p.x, y: p.y };
     const col = document.getElementById('draw-color').value, wid = +document.getElementById('draw-width').value, op = +document.getElementById('draw-opacity').value / 100;
     if (drawTool === 'rect')   activeShape = new fabric.Rect({ left: p.x, top: p.y, width: 0, height: 0, fill: 'transparent', stroke: col, strokeWidth: wid, opacity: op, selectable: false, evented: true, lockMovementX: true, lockMovementY: true });
@@ -742,7 +802,7 @@ function initEditor(imgDataUrl, pageId, vi) {
     if (activeShape) fabricCanvas.add(activeShape);
   });
   fabricCanvas.on('mouse:move', opt => {
-    if (drawTool === 'eraser') { if (opt.e.buttons & 1) doErase(opt.e); return; }
+    if (drawTool === 'eraser') { if ((opt.e.buttons&1)&&isErasing) erasePoints.push(fabricCanvas.getPointer(opt.e)); return; }
     if (isPanning) {
       const dx = opt.e.clientX - panLastX, dy = opt.e.clientY - panLastY;
       fabricCanvas.relativePan({ x: dx, y: dy });
@@ -760,8 +820,19 @@ function initEditor(imgDataUrl, pageId, vi) {
     fabricCanvas.renderAll();
   });
   fabricCanvas.on('mouse:up', () => {
+    if (isErasing) { applyErase(); return; }
     if (isPanning) { isPanning = false; fabricCanvas.defaultCursor = 'grab'; return; }
     if (activeShape) { activeShape.set({ selectable: false, evented: true, lockMovementX: true, lockMovementY: true }); activeShape = null; drawStart = null; fabricCanvas.renderAll(); saveDrawState(); }
+  });
+  fabricCanvas.on('mouse:wheel', opt => {
+    const e = opt.e;
+    let zoom = fabricCanvas.getZoom() * (e.deltaY > 0 ? 0.9 : 1.1);
+    zoom = Math.min(4, Math.max(0.25, zoom));
+    fabricCanvas.zoomToPoint(new fabric.Point(e.offsetX, e.offsetY), zoom);
+    const pct = Math.round(zoom*100);
+    const zs=document.getElementById('draw-zoom'), zv=document.getElementById('draw-zoom-val');
+    if(zs) zs.value=pct; if(zv) zv.value=pct;
+    e.preventDefault(); e.stopPropagation();
   });
   fabricCanvas.on('path:created', e => { if (e.path) e.path.set({ selectable: false, evented: true, lockMovementX: true, lockMovementY: true }); saveDrawState(); });
   document.addEventListener('keydown', onDrawKey);
@@ -785,8 +856,13 @@ function setDrawZoom(val) {
 }
 function onDrawKey(e) {
   if (!fabricCanvas) return;
-  if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redoDraw() : undoDraw(); }
-  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redoDraw() : undoDraw(); return; }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); deleteSelected(); return; }
+  if (!e.metaKey && !e.ctrlKey && !e.altKey && document.activeElement.tagName !== 'INPUT') {
+    const toolKeys = { f:'pen', v:'select', s:'rect', d:'circle', e:'eraser', z:'fill' };
+    const k = toolKeys[e.key.toLowerCase()];
+    if (k) { setDrawTool(k); e.preventDefault(); return; }
+  }
   if ((e.metaKey || e.ctrlKey) && e.key === 'c') { const o = fabricCanvas.getActiveObject(); if (o) editorClipboard = o.toObject(); }
   if ((e.metaKey || e.ctrlKey) && e.key === 'v' && editorClipboard) {
     fabric.util.enlivenObjects([editorClipboard], objs => { objs.forEach(o => { o.set({ left: o.left+20, top: o.top+20 }); fabricCanvas.add(o); }); fabricCanvas.renderAll(); saveDrawState(); });
