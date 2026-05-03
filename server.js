@@ -1197,84 +1197,89 @@ function rasterizeCanvas(callback) {
   bgImg.src = snap;
 }
 
+function canvasSnapshot() {
+  // Returns an offscreen canvas at LOGICAL size (no DPR), assumes viewport already at identity.
+  var lc = fabricCanvas.lowerCanvasEl;
+  var w = fabricCanvas.getWidth(), h = fabricCanvas.getHeight();
+  var off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  off.getContext('2d').drawImage(lc, 0, 0, lc.width, lc.height, 0, 0, w, h);
+  return off;
+}
+function applySnapshot(snap, savedVT) {
+  fabricCanvas.setViewportTransform(savedVT);
+  fabricCanvas.getObjects().slice().forEach(function(o){ fabricCanvas.remove(o); });
+  var bgImg = new Image();
+  bgImg.onload = function() {
+    var fImg = new fabric.Image(bgImg, { left:0, top:0, selectable:false, evented:false, _isBackground:true });
+    fabricCanvas.backgroundColor = '#ffffff';
+    fabricCanvas.add(fImg);
+    fabricCanvas.sendToBack(fImg);
+    fabricCanvas.renderAll();
+    saveDrawState();
+  };
+  bgImg.src = snap.toDataURL();
+}
+
 function floodFill(e) {
   if (!fabricCanvas) return;
   var savedVT = fabricCanvas.viewportTransform.slice();
-  var b = fabricCanvas.upperCanvasEl.getBoundingClientRect();
-  var fp = { x: (e.clientX - b.left - savedVT[4]) / savedVT[0], y: (e.clientY - b.top - savedVT[5]) / savedVT[3] };
+  // Map click to canvas logical coordinates via inverse viewport transform
+  var bounds = fabricCanvas.upperCanvasEl.getBoundingClientRect();
+  var px = Math.round((e.clientX - bounds.left - savedVT[4]) / savedVT[0]);
+  var py = Math.round((e.clientY - bounds.top  - savedVT[5]) / savedVT[3]);
+  // Render at identity then grab offscreen canvas at logical size (bypasses DPR entirely)
   fabricCanvas.setViewportTransform([1,0,0,1,0,0]);
   fabricCanvas.renderAll();
-  var lc = fabricCanvas.lowerCanvasEl;
-  var dpr = lc.width / fabricCanvas.getWidth();
-  var px = Math.round(fp.x * dpr), py = Math.round(fp.y * dpr);
-  var lw = lc.width, lh = lc.height;
-  if (px < 0 || py < 0 || px >= lw || py >= lh) {
-    fabricCanvas.setViewportTransform(savedVT); fabricCanvas.renderAll(); return;
-  }
-  var ctx = lc.getContext('2d');
-  var id = ctx.getImageData(0, 0, lw, lh), d = id.data;
-  var s = (py*lw+px)*4, tR=d[s], tG=d[s+1], tB=d[s+2];
+  var off = canvasSnapshot();
+  var w = off.width, h = off.height;
+  if (px < 0 || py < 0 || px >= w || py >= h) { fabricCanvas.setViewportTransform(savedVT); fabricCanvas.renderAll(); return; }
+  var ctx = off.getContext('2d');
+  var id = ctx.getImageData(0, 0, w, h), d = id.data;
+  var s = (py*w+px)*4, tR=d[s], tG=d[s+1], tB=d[s+2];
   var hex = document.getElementById('draw-color').value;
   var fR=parseInt(hex.slice(1,3),16), fG=parseInt(hex.slice(3,5),16), fB=parseInt(hex.slice(5,7),16);
   if (tR===fR && tG===fG && tB===fB) { fabricCanvas.setViewportTransform(savedVT); fabricCanvas.renderAll(); return; }
   var tol=30;
   function hit(i){return Math.abs(d[i]-tR)<=tol&&Math.abs(d[i+1]-tG)<=tol&&Math.abs(d[i+2]-tB)<=tol;}
-  var q=new Int32Array(lw*lh), qh=0, qt=0, vis=new Uint8Array(lw*lh);
-  q[qt++]=px+py*lw; vis[px+py*lw]=1;
+  var q=new Int32Array(w*h), qh=0, qt=0, vis=new Uint8Array(w*h);
+  q[qt++]=px+py*w; vis[px+py*w]=1;
   while(qh<qt){
-    var pos=q[qh++], cx=pos%lw, cy=(pos/lw)|0, i4=pos*4;
+    var pos=q[qh++], cx=pos%w, cy=(pos/w)|0, i4=pos*4;
     d[i4]=fR;d[i4+1]=fG;d[i4+2]=fB;d[i4+3]=255;
     if(cx>0   &&!vis[pos-1] &&hit((pos-1)*4)){vis[pos-1]=1;q[qt++]=pos-1;}
-    if(cx<lw-1&&!vis[pos+1] &&hit((pos+1)*4)){vis[pos+1]=1;q[qt++]=pos+1;}
-    if(cy>0   &&!vis[pos-lw]&&hit((pos-lw)*4)){vis[pos-lw]=1;q[qt++]=pos-lw;}
-    if(cy<lh-1&&!vis[pos+lw]&&hit((pos+lw)*4)){vis[pos+lw]=1;q[qt++]=pos+lw;}
+    if(cx<w-1 &&!vis[pos+1] &&hit((pos+1)*4)){vis[pos+1]=1;q[qt++]=pos+1;}
+    if(cy>0   &&!vis[pos-w] &&hit((pos-w)*4)){vis[pos-w]=1;q[qt++]=pos-w;}
+    if(cy<h-1 &&!vis[pos+w] &&hit((pos+w)*4)){vis[pos+w]=1;q[qt++]=pos+w;}
   }
   ctx.putImageData(id, 0, 0);
-  var snap=lc.toDataURL();
-  fabricCanvas.setViewportTransform(savedVT);
-  fabricCanvas.getObjects().slice().forEach(function(o){fabricCanvas.remove(o);});
-  var bgImg=new Image();
-  bgImg.onload=function(){
-    var fImg=new fabric.Image(bgImg,{left:0,top:0,scaleX:fabricCanvas.getWidth()/bgImg.naturalWidth,scaleY:fabricCanvas.getHeight()/bgImg.naturalHeight,selectable:false,evented:false,_isBackground:true});
-    fabricCanvas.backgroundColor='#ffffff';fabricCanvas.add(fImg);fabricCanvas.sendToBack(fImg);fabricCanvas.renderAll();saveDrawState();
-  };
-  bgImg.src=snap;
+  applySnapshot(off, savedVT);
 }
 
 function applyErase() {
   if (eraserMode === 'object') { applyObjectErase(); return; }
   if (!erasePoints.length || !fabricCanvas) return;
-  var w = +document.getElementById('draw-width').value;
+  var brushW = +document.getElementById('draw-width').value;
   var savedVT = fabricCanvas.viewportTransform.slice();
   fabricCanvas.setViewportTransform([1,0,0,1,0,0]);
   fabricCanvas.renderAll();
-  var lc = fabricCanvas.lowerCanvasEl;
-  var dpr = lc.width / fabricCanvas.getWidth();
-  var ctx = lc.getContext('2d');
-  ctx.save();
+  // Use offscreen canvas at logical size — no DPR math needed, erasePoints are already in logical coords
+  var off = canvasSnapshot();
+  var ctx = off.getContext('2d');
   ctx.globalCompositeOperation = 'destination-out';
   ctx.fillStyle = 'rgba(0,0,0,1)';
   ctx.strokeStyle = 'rgba(0,0,0,1)';
-  ctx.lineWidth = w * dpr * 2;
+  ctx.lineWidth = brushW * 2;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   if (erasePoints.length === 1) {
-    ctx.beginPath(); ctx.arc(erasePoints[0].x*dpr, erasePoints[0].y*dpr, w*dpr, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(erasePoints[0].x, erasePoints[0].y, brushW, 0, Math.PI*2); ctx.fill();
   } else {
-    ctx.beginPath(); ctx.moveTo(erasePoints[0].x*dpr, erasePoints[0].y*dpr);
-    for (var i=1; i<erasePoints.length; i++) ctx.lineTo(erasePoints[i].x*dpr, erasePoints[i].y*dpr);
+    ctx.beginPath(); ctx.moveTo(erasePoints[0].x, erasePoints[0].y);
+    for (var i=1; i<erasePoints.length; i++) ctx.lineTo(erasePoints[i].x, erasePoints[i].y);
     ctx.stroke();
   }
-  ctx.restore();
-  var snap = lc.toDataURL();
-  fabricCanvas.setViewportTransform(savedVT);
-  fabricCanvas.getObjects().slice().forEach(function(o){fabricCanvas.remove(o);});
-  var bgImg = new Image();
-  bgImg.onload = function() {
-    var fImg = new fabric.Image(bgImg,{left:0,top:0,scaleX:fabricCanvas.getWidth()/bgImg.naturalWidth,scaleY:fabricCanvas.getHeight()/bgImg.naturalHeight,selectable:false,evented:false,_isBackground:true});
-    fabricCanvas.backgroundColor='#ffffff';fabricCanvas.add(fImg);fabricCanvas.sendToBack(fImg);fabricCanvas.renderAll();saveDrawState();
-  };
-  bgImg.src = snap;
   erasePoints = []; isErasing = false;
+  applySnapshot(off, savedVT);
 }
 
 function hexToRgba(hex, alpha) {
@@ -1484,7 +1489,7 @@ function onDrawKey(e) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); if (e.shiftKey) redoDraw(); else undoDraw(); return; }
   if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); deleteSelected(); return; }
   if (!e.metaKey && !e.ctrlKey && !e.altKey && document.activeElement.tagName !== 'INPUT') {
-    if (e.key.toLowerCase() === 'r') { setDrawZoom(100); e.preventDefault(); return; }
+    if (e.key.toLowerCase() === 'r') { fabricCanvas.setViewportTransform([1,0,0,1,0,0]); fabricCanvas.renderAll(); var zs=document.getElementById('draw-zoom'),zv=document.getElementById('draw-zoom-val'); if(zs)zs.value=100; if(zv)zv.value=100; e.preventDefault(); return; }
     var toolKeys = { f:'pen', l:'line', v:'select', s:'rect', d:'circle', e:'eraser', z:'fill' };
     var k = toolKeys[e.key.toLowerCase()];
     if (k) { setDrawTool(k); e.preventDefault(); return; }
