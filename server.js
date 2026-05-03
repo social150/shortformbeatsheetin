@@ -1198,13 +1198,9 @@ function rasterizeCanvas(callback) {
 }
 
 function canvasSnapshot() {
-  // Returns an offscreen canvas at LOGICAL size (no DPR), assumes viewport already at identity.
-  var lc = fabricCanvas.lowerCanvasEl;
-  var w = fabricCanvas.getWidth(), h = fabricCanvas.getHeight();
-  var off = document.createElement('canvas');
-  off.width = w; off.height = h;
-  off.getContext('2d').drawImage(lc, 0, 0, lc.width, lc.height, 0, 0, w, h);
-  return off;
+  // toCanvasElement(1) renders ALL objects synchronously at logical size,
+  // using the current viewportTransform — no lower-canvas / rAF dependency.
+  return fabricCanvas.toCanvasElement(1);
 }
 function applySnapshot(snap, savedVT) {
   fabricCanvas.setViewportTransform(savedVT);
