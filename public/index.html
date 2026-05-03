@@ -186,6 +186,11 @@
     #draw-canvas-wrap { flex: 1; min-height: 0; overflow: hidden; cursor: crosshair; background: #fff; }
     #draw-canvas-wrap canvas { display: block; }
     .editor-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 12px; background: #111118; border-top: 1px solid #2a2a3a; flex-shrink: 0; }
+    .etool-tool { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    .etool-hotkey { font-size: 9px; color: #4b4b5b; line-height: 1; user-select: none; }
+    .eraser-mode-group { display: none !important; }
+    .eraser-mode-group.visible { display: flex !important; }
+    .eraser-mode-btn { font-size: 10px !important; width: auto !important; padding: 0 7px !important; }
 
     @media (max-width: 768px) {
       .video-row-main { flex-direction: column; min-height: unset; }
@@ -273,13 +278,18 @@
   <div class="editor-wrap">
     <div class="editor-toolbar">
       <div class="etool-group">
-        <button class="etool-btn active" id="etool-pen"    onclick="setDrawTool('pen')"    title="Pen (freehand)">&#9998;</button>
-        <button class="etool-btn"        id="etool-line"   onclick="setDrawTool('line')"   title="Line (Shift=45°)">&#9585;</button>
-        <button class="etool-btn"        id="etool-rect"   onclick="setDrawTool('rect')"   title="Rectangle (Shift=square)">&#9645;</button>
-        <button class="etool-btn"        id="etool-circle" onclick="setDrawTool('circle')" title="Circle (Shift=equal)">&#9711;</button>
-        <button class="etool-btn"        id="etool-select" onclick="setDrawTool('select')" title="Select &amp; Move"><svg viewBox="0 0 16 20" width="14" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 1l0 15 3-3 2 4 2-1-2-4 4 0z"/></svg></button>
-        <button class="etool-btn"        id="etool-eraser" onclick="setDrawTool('eraser')" title="Eraser"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16 13 6l7 7-2.5 2.5"/><path d="M6 11l7 7"/></svg></button>
-        <button class="etool-btn"        id="etool-fill"   onclick="setDrawTool('fill')"   title="Paint Bucket"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-2 13H7z"/><line x1="3" y1="8" x2="21" y2="8"/><path d="M9 8V5a3 3 0 0 0 6 0v3"/><circle cx="19" cy="22" r="1.5" fill="currentColor" stroke="none"/></svg></button>
+        <div class="etool-tool"><button class="etool-btn active" id="etool-pen"    onclick="setDrawTool('pen')"    title="Pen (freehand)">&#9998;</button><span class="etool-hotkey">F</span></div>
+        <div class="etool-tool"><button class="etool-btn"        id="etool-line"   onclick="setDrawTool('line')"   title="Line (Shift=45°)">&#9585;</button><span class="etool-hotkey">L</span></div>
+        <div class="etool-tool"><button class="etool-btn"        id="etool-rect"   onclick="setDrawTool('rect')"   title="Rectangle (Shift=square)">&#9645;</button><span class="etool-hotkey">S</span></div>
+        <div class="etool-tool"><button class="etool-btn"        id="etool-circle" onclick="setDrawTool('circle')" title="Circle (Shift=equal)">&#9711;</button><span class="etool-hotkey">D</span></div>
+        <div class="etool-tool"><button class="etool-btn"        id="etool-select" onclick="setDrawTool('select')" title="Select &amp; Move"><svg viewBox="0 0 16 20" width="14" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 1l0 15 3-3 2 4 2-1-2-4 4 0z"/></svg></button><span class="etool-hotkey">V</span></div>
+        <div class="etool-tool"><button class="etool-btn"        id="etool-eraser" onclick="setDrawTool('eraser')" title="Eraser"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16 13 6l7 7-2.5 2.5"/><path d="M6 11l7 7"/></svg></button><span class="etool-hotkey">E</span></div>
+        <div class="etool-tool"><button class="etool-btn"        id="etool-fill"   onclick="setDrawTool('fill')"   title="Paint Bucket"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAARGVYSWZNTQAqAAAACAABh2kABAAAAAEAAAAaAAAAAAADoAEAAwAAAAEAAQAAoAIABAAAAAEAAAAgoAMABAAAAAEAAAAgAAAAAKyGYvMAAAGdaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJYTVAgQ29yZSA2LjAuMCI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOmV4aWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vZXhpZi8xLjAvIj4KICAgICAgICAgPGV4aWY6UGl4ZWxYRGltZW5zaW9uPjUxMjwvZXhpZjpQaXhlbFhEaW1lbnNpb24+CiAgICAgICAgIDxleGlmOlBpeGVsWURpbWVuc2lvbj41MTI8L2V4aWY6UGl4ZWxZRGltZW5zaW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgPC9yZGY6UkRGPgo8L3g6eG1wbWV0YT4KuC9IVwAAAshJREFUWAntlkuIT1Ecx4fxfr8WaEQsMFJMiYZYKTtZ2M1uliLZYMFiNmxsUMpjYTyy8Cqi1EiyECIUU6LxLK9RDIYafD7jHJ0Z7p2H+x8b3/rM+d3zu/f3+93z/51zp6zsH6s8J38VvrUwEhpz7iuJazhR78P3wAHGIdBnqiBTC7yHl2AhByFvxXAXpxGEegrNsAKawCK2ghoKE9qtEv45SWyTroQF8BG+wia4A6/gLCyHkqiGqBZwPkRfw9gW5pxvTey92GOhUBnwOfjWlbAIPoPJ5TjUQuyR69gzoVDVEc1kV8Ce0D4Gr+EDWNh0uAT6mmA+FCYbzVUwuOyEfrAlXN9gtCGHwdEw94RxDhSiaqLYbCZ/BINBmdBVcf4IWNQAqAfn7sFE+Cst4emY3B1g4A1JxBnYvq3zu8N8OeOpMHea0eteKU2+gwhuNZuxBWzGqIUYsch92LNhFbwDC6uFHitN7pv1DxHqGA36AKZB1GKMF6DvC3yDuF392SZBt5WV3AADIS7vTWw/UlFzMW6BRXTGQ8ufq0vlJY8Pj8E4B9dgVJwM43hGDyRXoXMRnhFpwVx21Dwu42+ZLnvHu35e2Vh5X8Ya/PaLRTTCp2C7dTO1HY8P+MWLv3nmzTmOCnxXwVgXwKZ8E649T8ZBB8Vkz8KsDSS90RQeOgPujIuwGjy6/bKqybC03frDHyt/C61gV/dUJo9N2IAdP0wWk/bDtrzAG8PNt5MAefdHn8ndFSZKk+tfFuZjEYeczJKN5dJ58wlw23WlrDePz+mPPWDc9dGRNU7F8RC8eT94vmfJ4Flvnj5TzcUeWAeDUkeWXYUjnmyHsWMTpfd3N3n6TI9s/wV7DK7EZaiEqJInj4lmYXjiWUQzbAa7Ol323/Y1/kI1mmi7oA0sJNKAXfLk5PglG6ke7oJ9Efc5Zt8qb1f0bSX/sxW1Aj8ArfXKR3c4Sc8AAAAASUVORK5CYII=" width="18" height="18" style="display:block;filter:invert(0.88)"></button><span class="etool-hotkey">Z</span></div>
+      </div>
+      <div class="etool-group eraser-mode-group" id="eraser-mode-group">
+        <span class="etool-label">Erase</span>
+        <button class="etool-btn eraser-mode-btn active" id="erase-mode-pixel"  onclick="setEraserMode('pixel')"  title="Erase pixels under eraser path">Pixel</button>
+        <button class="etool-btn eraser-mode-btn"        id="erase-mode-object" onclick="setEraserMode('object')" title="Erase whole objects on contact">Object</button>
       </div>
       <div class="etool-group">
         <span class="etool-label">Color</span>
@@ -302,6 +312,7 @@
         <input type="range" id="draw-zoom" min="25" max="400" value="100" oninput="setDrawZoom(this.value)" style="width:70px;accent-color:#3b82f6;cursor:pointer">
         <input type="number" id="draw-zoom-val" class="etool-numval" min="25" max="400" value="100" onchange="setDrawZoom(this.value)">
         <span class="etool-label">%</span>
+        <span class="etool-hotkey" style="color:#4b4b5b;margin-left:3px">R to reset</span>
       </div>
     </div>
     <div id="draw-canvas-wrap">
@@ -639,11 +650,48 @@ let drawTool = 'pen', drawHistory = [], drawHistIdx = -1;
 let drawStart = null, activeShape = null, editorClipboard = null;
 let isPanning = false, panLastX = 0, panLastY = 0;
 let erasePoints = [], isErasing = false;
+let eraserMode = 'pixel';
+
+function getCanvasPos(e) {
+  const b = fabricCanvas.upperCanvasEl.getBoundingClientRect();
+  const vt = fabricCanvas.viewportTransform;
+  return { x: (e.clientX - b.left - vt[4]) / vt[0], y: (e.clientY - b.top - vt[5]) / vt[3] };
+}
+function setEraserMode(mode) {
+  eraserMode = mode;
+  document.getElementById('erase-mode-pixel').classList.toggle('active', mode === 'pixel');
+  document.getElementById('erase-mode-object').classList.toggle('active', mode === 'object');
+}
+function applyObjectErase() {
+  if (!erasePoints.length || !fabricCanvas) return;
+  const w = +document.getElementById('draw-width').value;
+  const objs = fabricCanvas.getObjects().filter(o => !o._isBackground);
+  const toRemove = new Set();
+  erasePoints.forEach(pt => {
+    objs.forEach(o => {
+      if (!toRemove.has(o)) {
+        const r = o.getBoundingRect(true);
+        if (pt.x + w >= r.left && pt.x - w <= r.left + r.width &&
+            pt.y + w >= r.top  && pt.y - w <= r.top  + r.height) {
+          toRemove.add(o);
+        }
+      }
+    });
+  });
+  toRemove.forEach(o => fabricCanvas.remove(o));
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
+  if (toRemove.size > 0) saveDrawState();
+  erasePoints = []; isErasing = false;
+}
 
 function floodFill(e) {
   if (!fabricCanvas) return;
   const savedVT = fabricCanvas.viewportTransform.slice();
-  const fp = fabricCanvas.getPointer(e);
+  // Compute click in canvas logical coords using CSS position + inverse viewport transform
+  // (avoids Fabric's getPointer which double-applies DPR on Retina at non-100% zoom)
+  const b = fabricCanvas.upperCanvasEl.getBoundingClientRect();
+  const fp = { x: (e.clientX - b.left - savedVT[4]) / savedVT[0], y: (e.clientY - b.top - savedVT[5]) / savedVT[3] };
   fabricCanvas.setViewportTransform([1,0,0,1,0,0]);
   fabricCanvas.renderAll();
   const lc = fabricCanvas.lowerCanvasEl;
@@ -683,6 +731,7 @@ function floodFill(e) {
 }
 
 function applyErase() {
+  if (eraserMode === 'object') { applyObjectErase(); return; }
   if (!erasePoints.length||!fabricCanvas) return;
   const w = +document.getElementById('draw-width').value;
   const savedVT = fabricCanvas.viewportTransform.slice();
@@ -724,6 +773,8 @@ function setDrawTool(tool) {
   drawTool = tool;
   document.querySelectorAll('.etool-btn[id^="etool-"]').forEach(b => b.classList.remove('active'));
   const btn = document.getElementById('etool-' + tool); if (btn) btn.classList.add('active');
+  const modeGroup = document.getElementById('eraser-mode-group');
+  if (modeGroup) modeGroup.classList.toggle('visible', tool === 'eraser');
   if (!fabricCanvas) return;
   if (prev === 'select' && tool !== 'select') {
     fabricCanvas.discardActiveObject();
@@ -788,7 +839,7 @@ function initEditor(imgDataUrl, pageId, vi) {
   } else { saveDrawState(); }
   fabricCanvas.on('mouse:down', opt => {
     if (drawTool === 'pen') return;
-    if (drawTool === 'eraser') { isErasing = true; erasePoints = [fabricCanvas.getPointer(opt.e)]; return; }
+    if (drawTool === 'eraser') { isErasing = true; erasePoints = [getCanvasPos(opt.e)]; return; }
     if (drawTool === 'select') {
       if (!opt.target && !opt.e.shiftKey) { isPanning = true; panLastX = opt.e.clientX; panLastY = opt.e.clientY; fabricCanvas.defaultCursor = 'grabbing'; }
       return;
@@ -802,7 +853,7 @@ function initEditor(imgDataUrl, pageId, vi) {
     if (activeShape) fabricCanvas.add(activeShape);
   });
   fabricCanvas.on('mouse:move', opt => {
-    if (drawTool === 'eraser') { if ((opt.e.buttons&1)&&isErasing) erasePoints.push(fabricCanvas.getPointer(opt.e)); return; }
+    if (drawTool === 'eraser') { if ((opt.e.buttons&1)&&isErasing) erasePoints.push(getCanvasPos(opt.e)); return; }
     if (isPanning) {
       const dx = opt.e.clientX - panLastX, dy = opt.e.clientY - panLastY;
       fabricCanvas.relativePan({ x: dx, y: dy });
@@ -859,7 +910,8 @@ function onDrawKey(e) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redoDraw() : undoDraw(); return; }
   if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); deleteSelected(); return; }
   if (!e.metaKey && !e.ctrlKey && !e.altKey && document.activeElement.tagName !== 'INPUT') {
-    const toolKeys = { f:'pen', v:'select', s:'rect', d:'circle', e:'eraser', z:'fill' };
+    if (e.key.toLowerCase() === 'r') { setDrawZoom(100); e.preventDefault(); return; }
+    const toolKeys = { f:'pen', l:'line', v:'select', s:'rect', d:'circle', e:'eraser', z:'fill' };
     const k = toolKeys[e.key.toLowerCase()];
     if (k) { setDrawTool(k); e.preventDefault(); return; }
   }
