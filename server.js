@@ -77,7 +77,7 @@ async function pullVideos() {
     const raw = fromRichText(p[FIELD_BEATSHEET]?.rich_text);
     let roadmap;
     try { roadmap = raw ? JSON.parse(raw) : null; } catch { roadmap = null; }
-    if (!roadmap) {
+    if (!roadmap || !Array.isArray(roadmap.segments) || !roadmap.segments.length) {
       roadmap = {
         segments: [
           { id: 1, type: 'hook',      title: hook || '', desc: '', notes: '' },
@@ -837,6 +837,12 @@ async function pullFromNotion() {
     const res = await fetch('/api/pull');
     if (!res.ok) throw new Error('Pull failed');
     videos = await res.json();
+    // Ensure every segment has an id (old Notion data may predate the id field)
+    videos.forEach(v => {
+      (v.roadmap?.segments || []).forEach((s, i) => {
+        if (!s.id) s.id = Date.now() + i + Math.random();
+      });
+    });
     buildFilter();
     render();
     history = [JSON.parse(JSON.stringify(videos))];
