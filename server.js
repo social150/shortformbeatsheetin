@@ -493,6 +493,10 @@ function getHTML() {
     .eraser-mode-group { display: none !important; }
     .eraser-mode-group.visible { display: flex !important; }
     .eraser-mode-btn { font-size: 10px !important; width: auto !important; padding: 0 7px !important; }
+    .text-options-group { display: none !important; }
+    .text-options-group.visible { display: flex !important; }
+    .text-font-select { font-size: 11px; height: 24px; border: 1px solid #444; background: #1e1e2e; color: #cdd6f4; border-radius: 4px; cursor: pointer; }
+    .etool-numval { width: 38px; font-size: 11px; background: #1e1e2e; border: 1px solid #444; color: #cdd6f4; border-radius: 4px; text-align: center; height: 22px; }
 
     /* ── Mobile ──────────────────────────────────────────────── */
     @media (max-width: 768px) {
@@ -620,6 +624,21 @@ function getHTML() {
         <div class="etool-tool"><button class="etool-btn"        id="etool-select" onclick="setDrawTool(\'select\')" title="Select &amp; Move"><svg viewBox="0 0 16 20" width="14" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 1l0 15 3-3 2 4 2-1-2-4 4 0z"/></svg></button><span class="etool-hotkey">V</span></div>
         <div class="etool-tool"><button class="etool-btn"        id="etool-eraser" onclick="setDrawTool(\'eraser\')" title="Eraser"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16 13 6l7 7-2.5 2.5"/><path d="M6 11l7 7"/></svg></button><span class="etool-hotkey">E</span></div>
         <div class="etool-tool"><button class="etool-btn"        id="etool-fill"   onclick="setDrawTool(\'fill\')"   title="Paint Bucket"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAARGVYSWZNTQAqAAAACAABh2kABAAAAAEAAAAaAAAAAAADoAEAAwAAAAEAAQAAoAIABAAAAAEAAAAgoAMABAAAAAEAAAAgAAAAAKyGYvMAAAGdaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJYTVAgQ29yZSA2LjAuMCI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOmV4aWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vZXhpZi8xLjAvIj4KICAgICAgICAgPGV4aWY6UGl4ZWxYRGltZW5zaW9uPjUxMjwvZXhpZjpQaXhlbFhEaW1lbnNpb24+CiAgICAgICAgIDxleGlmOlBpeGVsWURpbWVuc2lvbj41MTI8L2V4aWY6UGl4ZWxZRGltZW5zaW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgPC9yZGY6UkRGPgo8L3g6eG1wbWV0YT4KuC9IVwAAAshJREFUWAntlkuIT1Ecx4fxfr8WaEQsMFJMiYZYKTtZ2M1uliLZYMFiNmxsUMpjYTyy8Cqi1EiyECIUU6LxLK9RDIYafD7jHJ0Z7p2H+x8b3/rM+d3zu/f3+93z/51zp6zsH6s8J38VvrUwEhpz7iuJazhR78P3wAHGIdBnqiBTC7yHl2AhByFvxXAXpxGEegrNsAKawCK2ghoKE9qtEv45SWyTroQF8BG+wia4A6/gLCyHkqiGqBZwPkRfw9gW5pxvTey92GOhUBnwOfjWlbAIPoPJ5TjUQuyR69gzoVDVEc1kV8Ce0D4Gr+EDWNh0uAT6mmA+FCYbzVUwuOyEfrAlXN9gtCGHwdEw94RxDhSiaqLYbCZ/BINBmdBVcf4IWNQAqAfn7sFE+Cst4emY3B1g4A1JxBnYvq3zu8N8OeOpMHea0eteKU2+gwhuNZuxBWzGqIUYsch92LNhFbwDC6uFHitN7pv1DxHqGA36AKZB1GKMF6DvC3yDuF392SZBt5WV3AADIS7vTWw/UlFzMW6BRXTGQ8ufq0vlJY8Pj8E4B9dgVJwM43hGDyRXoXMRnhFpwVx21Dwu42+ZLnvHu35e2Vh5X8Ya/PaLRTTCp2C7dTO1HY8P+MWLv3nmzTmOCnxXwVgXwKZ8E649T8ZBB8Vkz8KsDSS90RQeOgPujIuwGjy6/bKqybC03frDHyt/C61gV/dUJo9N2IAdP0wWk/bDtrzAG8PNt5MAefdHn8ndFSZKk+tfFuZjEYeczJKN5dJ58wlw23WlrDePz+mPPWDc9dGRNU7F8RC8eT94vmfJ4Flvnj5TzcUeWAeDUkeWXYUjnmyHsWMTpfd3N3n6TI9s/wV7DK7EZaiEqJInj4lmYXjiWUQzbAa7Ol323/Y1/kI1mmi7oA0sJNKAXfLk5PglG6ke7oJ9Efc5Zt8qb1f0bSX/sxW1Aj8ArfXKR3c4Sc8AAAAASUVORK5CYII=" width="18" height="18" style="display:block;filter:invert(0.88)"></button><span class="etool-hotkey">Z</span></div>
+        <div class="etool-tool"><button class="etool-btn" id="etool-text" onclick="setDrawTool(\'text\')" title="Text" style="font-family:Georgia,serif;font-size:17px;font-weight:bold;letter-spacing:0;padding:0 3px">T</button><span class="etool-hotkey">T</span></div>
+      </div>
+      <div class="etool-group text-options-group" id="text-options-group">
+        <span class="etool-label">Font</span>
+        <select id="text-font" class="text-font-select" onchange="updateTextStyle()" title="Font family">
+          <option value="Georgia">Georgia</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="Arial">Arial</option>
+          <option value="Helvetica">Helvetica</option>
+          <option value="Courier New">Courier New</option>
+          <option value="Verdana">Verdana</option>
+        </select>
+        <span class="etool-label" style="margin-left:4px">Size</span>
+        <input type="range" id="text-size" min="8" max="120" value="24" oninput="updateTextStyle()" style="width:55px;accent-color:#3b82f6;cursor:pointer">
+        <input type="number" id="text-size-val" class="etool-numval" min="8" max="120" value="24" onchange="document.getElementById(\'text-size\').value=this.value;updateTextStyle()">
       </div>
       <div class="etool-group eraser-mode-group" id="eraser-mode-group">
         <span class="etool-label">Erase</span>
@@ -1300,6 +1319,8 @@ function setDrawTool(tool) {
   if (btn) btn.classList.add('active');
   var modeGroup = document.getElementById('eraser-mode-group');
   if (modeGroup) modeGroup.classList.toggle('visible', tool === 'eraser');
+  var textGroup = document.getElementById('text-options-group');
+  if (textGroup) textGroup.classList.toggle('visible', tool === 'text');
   if (!fabricCanvas) return;
   if (prev === 'select' && tool !== 'select') {
     fabricCanvas.discardActiveObject();
@@ -1309,7 +1330,7 @@ function setDrawTool(tool) {
   }
   fabricCanvas.isDrawingMode = (tool === 'pen');
   fabricCanvas.selection = (tool === 'select');
-  fabricCanvas.defaultCursor = tool === 'select' ? 'grab' : tool === 'fill' ? 'cell' : 'crosshair';
+  fabricCanvas.defaultCursor = tool === 'select' ? 'grab' : tool === 'fill' ? 'cell' : tool === 'text' ? 'text' : 'crosshair';
   if (tool === 'select') {
     fabricCanvas.getObjects().forEach(function(o) { o.set({ selectable: true, evented: true, lockMovementX: false, lockMovementY: false }); });
     fabricCanvas.renderAll();
@@ -1326,6 +1347,23 @@ function updateDrawBrush() {
   var col = document.getElementById('draw-color').value;
   fabricCanvas.freeDrawingBrush.color = op < 100 ? hexToRgba(col, op / 100) : col;
   fabricCanvas.freeDrawingBrush.width = w;
+  var obj = fabricCanvas.getActiveObject();
+  if (obj && (obj.type === 'i-text' || obj.type === 'text')) {
+    obj.set('fill', col);
+    fabricCanvas.renderAll();
+  }
+}
+
+function updateTextStyle() {
+  var fSize = +(document.getElementById('text-size').value) || 24;
+  var fFamily = document.getElementById('text-font').value || 'Georgia';
+  document.getElementById('text-size-val').value = fSize;
+  if (!fabricCanvas) return;
+  var obj = fabricCanvas.getActiveObject();
+  if (obj && (obj.type === 'i-text' || obj.type === 'text')) {
+    obj.set({ fontSize: fSize, fontFamily: fFamily });
+    fabricCanvas.renderAll();
+  }
 }
 
 function saveDrawState() {
@@ -1413,6 +1451,29 @@ function initEditor(imgDataUrl, pageId, vi) {
       return;
     }
     if (drawTool === 'fill') { floodFill(opt.e); return; }
+    if (drawTool === 'text') {
+      if (opt.target && (opt.target.type === 'i-text')) return;
+      var p0 = fabricCanvas.getPointer(opt.e);
+      var col0 = document.getElementById('draw-color').value;
+      var fSize = +(document.getElementById('text-size').value) || 24;
+      var fFamily = document.getElementById('text-font').value || 'Georgia';
+      var txt = new fabric.IText('', {
+        left: p0.x, top: p0.y,
+        fontFamily: fFamily, fontSize: fSize,
+        fill: col0, selectable: true, evented: true,
+        lockMovementX: false, lockMovementY: false
+      });
+      fabricCanvas.add(txt);
+      fabricCanvas.setActiveObject(txt);
+      txt.enterEditing();
+      fabricCanvas.renderAll();
+      txt.on('editing:exited', function() {
+        if (!txt.text || !txt.text.trim()) { fabricCanvas.remove(txt); }
+        fabricCanvas.renderAll();
+        saveDrawState();
+      });
+      return;
+    }
     var p   = fabricCanvas.getPointer(opt.e);
     drawStart = { x: p.x, y: p.y };
     var col = document.getElementById('draw-color').value;
@@ -1493,9 +1554,11 @@ function onDrawKey(e) {
   if (!fabricCanvas) return;
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); if (e.shiftKey) redoDraw(); else undoDraw(); return; }
   if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); deleteSelected(); return; }
+  var editingText = fabricCanvas.getActiveObject();
+  if (editingText && editingText.isEditing) return;
   if (!e.metaKey && !e.ctrlKey && !e.altKey && document.activeElement.tagName !== 'INPUT') {
     if (e.key.toLowerCase() === 'r') { fabricCanvas.setViewportTransform([1,0,0,1,0,0]); fabricCanvas.renderAll(); var zs=document.getElementById('draw-zoom'),zv=document.getElementById('draw-zoom-val'); if(zs)zs.value=100; if(zv)zv.value=100; e.preventDefault(); return; }
-    var toolKeys = { f:'pen', l:'line', v:'select', s:'rect', d:'circle', e:'eraser', z:'fill' };
+    var toolKeys = { f:'pen', l:'line', v:'select', s:'rect', d:'circle', e:'eraser', z:'fill', t:'text' };
     var k = toolKeys[e.key.toLowerCase()];
     if (k) { setDrawTool(k); e.preventDefault(); return; }
   }
