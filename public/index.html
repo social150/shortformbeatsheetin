@@ -77,7 +77,8 @@
     .video-status { font-size: 9px; font-weight: 600; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; background: var(--bg3); color: var(--dim); }
     .video-title { font-size: 13px; font-weight: 600; color: var(--text); background: transparent; border: none; width: 100%; font-family: inherit; }
     .video-title:focus { outline: none; background: var(--bg3); border-radius: 3px; padding: 2px 4px; margin: -2px -4px; }
-    .video-hook { font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .video-hook { font-size: 11px; color: var(--dim); background: transparent; border: none; width: 100%; font-family: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .video-hook:focus { outline: none; background: var(--bg3); border-radius: 3px; padding: 2px 4px; margin: -2px -4px; color: var(--text); white-space: normal; text-overflow: clip; }
 
     .video-info-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
     .url-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; color: var(--dim); font-size: 11px; font-weight: 700; text-decoration: none; letter-spacing: 0.05em; }
@@ -622,6 +623,12 @@ function updateCharCount(vi) {
 }
 
 function collectAll() {
+  document.querySelectorAll('.video-row').forEach(row => {
+    const vi = +row.dataset.vi;
+    if (isNaN(vi) || !videos[vi]) return;
+    const hookEl = row.querySelector('.video-hook');
+    if (hookEl) videos[vi].hook = hookEl.value;
+  });
   document.querySelectorAll('.seg:not(.mp-inline)').forEach(seg => {
     const vi    = +seg.dataset.vi;
     const segId = +seg.dataset.id;
@@ -687,7 +694,7 @@ function render() {
             (v.videoUrl ? '<a class="url-btn" href="' + esc(v.videoUrl) + '" target="_blank" rel="noopener">URL</a>' : '<span class="url-btn" style="opacity:0.4;cursor:default">no url</span>') +
             '<span class="char-count" id="cc-' + vi + '">' + videoCharCount(v) + ' chars</span>' +
           '</div>' +
-          '<div class="video-hook">' + esc(v.hook || 'No hook') + '</div>' +
+          '<input class="video-hook" value="' + esc(v.hook || '') + '" placeholder="No hook">' +
         '</div>' +
         '<div class="segments" data-vi="' + vi + '">' +
           getTimeline(v).map(item => {

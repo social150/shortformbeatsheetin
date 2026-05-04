@@ -1,6 +1,6 @@
 // api/push-all.js — Vercel serverless function
 const { Client } = require('@notionhq/client');
-const { FIELD_BEATSHEET, toRichText } = require('./_config');
+const { FIELD_BEATSHEET, FIELD_HOOK, toRichText } = require('./_config');
 
 const CONCURRENCY = 3;
 
@@ -22,6 +22,9 @@ module.exports = async (req, res) => {
             [FIELD_BEATSHEET]: {
               // Split JSON across up to 100 x 2000-char elements (~200K chars total)
               rich_text: toRichText(JSON.stringify(video.roadmap))
+            },
+            [FIELD_HOOK]: {
+              rich_text: toRichText(video.hook || '')
             }
           }
         })
