@@ -458,18 +458,17 @@ function getHTML() {
 
     /* ── Inline media cards (in segments row) ───────────────── */
     .mp-inline { display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
-      gap:4px; padding:8px 6px 6px; min-width:90px; max-width:140px; cursor:grab;
+      gap:4px; padding:4px 6px 6px; min-width:90px; max-width:140px; cursor:grab;
       position:relative; align-self:flex-start; }
+    .mp-inline-controls { display:flex; gap:2px; align-items:center; justify-content:center; width:100%; margin-bottom:2px; }
     .mp-inline-thumb { max-height:80px; max-width:120px; border-radius:4px; object-fit:cover;
       cursor:pointer; border:1px solid var(--border); }
     .mp-inline-thumb:hover { border-color:#3b82f6; }
     .mp-inline-icon { font-size:24px; line-height:1; }
     .mp-inline-label { font-size:10px; color:var(--dim); text-align:center; word-break:break-all;
       max-width:120px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-    .mp-inline-del { position:absolute; top:1px; right:1px; width:16px; height:16px; border-radius:50%;
-      border:none; background:var(--escalate); color:#fff; font-size:10px; cursor:pointer;
-      display:flex; align-items:center; justify-content:center; line-height:1; opacity:0; transition:opacity 0.15s; }
-    .mp-inline:hover .mp-inline-del { opacity:1; }
+    .mp-item[data-r2] { cursor:grab; }
+    .mp-item[data-r2]:active { cursor:grabbing; }
     /* ── Image lightbox ──────────────────────────────────────── */
     #img-preview { display:none; position:fixed; inset:0; z-index:900;
       background:rgba(0,0,0,0.9); align-items:center; justify-content:center; cursor:zoom-out; }
@@ -712,10 +711,26 @@ function getHTML() {
 let videos = [];
 function getTimeline(v) {
   if (!v.timeline) {
-    v.timeline = (v.roadmap?.segments || []).map(s => ({ k: 'seg', id: s.id }))
-      .concat((v.mediaIndex || []).map(m => ({ k: 'media', r2: m.r2_key })));
+    v.timeline = (v.roadmap?.segments || []).map(s => ({ k: 'seg', id: s.id }));
   }
   return v.timeline;
+}
+function moveMedia(vi, r2, dir) {
+  collectAll();
+  const tl = getTimeline(videos[vi]);
+  const ti = tl.findIndex(item => item.k === 'media' && item.r2 === r2);
+  if (ti === -1) return;
+  const newTi = ti + dir;
+  if (newTi < 0 || newTi >= tl.length) return;
+  tl.splice(newTi, 0, tl.splice(ti, 1)[0]);
+  videos[vi].timeline = tl;
+  saveHistory(); render();
+}
+function removeMediaFromRow(btn) {
+  const vi = +btn.dataset.vi;
+  const r2 = btn.dataset.r2;
+  videos[vi].timeline = getTimeline(videos[vi]).filter(item => !(item.k === 'media' && item.r2 === r2));
+  saveHistory(); render();
 }
 function previewImg(src) {
   document.getElementById('img-preview-img').src = src;
@@ -995,8 +1010,13 @@ function renderSeg(vi, si, s) {
 }
 
 function renderMediaInline(vi, m) {
-  const r2 = esc(m.r2_key), bid = esc(m.block_id || 'unknown');
-  const del = '<button class="mp-inline-del" title="Delete media" data-vi="' + vi + '" data-r2="' + r2 + '" data-bid="' + bid + '" onclick="deleteMedia(this);event.stopPropagation()">&#215;</button>';
+  const r2 = esc(m.r2_key);
+  const controls =
+    '<div class="mp-inline-controls">' +
+      '<button class="seg-btn" onclick="moveMedia(' + vi + ',\'' + r2 + '\',-1);event.stopPropagation()" title="Left">&#8592;</button>' +
+      '<button class="seg-btn" onclick="moveMedia(' + vi + ',\'' + r2 + '\',1);event.stopPropagation()" title="Right">&#8594;</button>' +
+      '<button class="seg-btn delete" data-vi="' + vi + '" data-r2="' + r2 + '" onclick="removeMediaFromRow(this);event.stopPropagation()" title="Remove from row">&#215;</button>' +
+    '</div>';
   let inner = '';
   if (m.kind === 'image') {
     inner = '<img class="mp-inline-thumb" src="' + esc(m.public_url) + '" onclick="previewImg(this.src);event.stopPropagation()" title="' + esc(m.filename||'') + '">';
@@ -1005,7 +1025,7 @@ function renderMediaInline(vi, m) {
   } else {
     inner = '<div class="mp-inline-icon">&#127909;</div><span class="mp-inline-label">' + esc(m.filename||'video') + '</span>';
   }
-  return '<div class="seg mp-inline" data-vi="' + vi + '" data-r2="' + r2 + '" draggable="true">' + del + inner + '</div>';
+  return '<div class="seg mp-inline" data-vi="' + vi + '" data-r2="' + r2 + '" draggable="true">' + controls + inner + '</div>';
 }
 
 // ── Media panel ──────────────────────────────────────────────
@@ -1046,20 +1066,21 @@ function renderMediaItem(m, vi) {
   const r2  = esc(m.r2_key);
   const bid = esc(m.block_id || 'unknown');
   const del = '<button class="mp-del" title="Delete" data-vi="' + vi + '" data-r2="' + r2 + '" data-bid="' + bid + '" onclick="deleteMedia(this)">&#215;</button>';
+  const dragAttr = 'draggable="true" data-vi="' + vi + '" data-r2="' + r2 + '"';
 
   if (m.kind === 'image') {
-    return '<div class="mp-item">' +
-      '<img class="mp-thumb" src="' + esc(m.public_url) + '" loading="lazy" title="' + esc(m.filename||'') + '">' +
+    return '<div class="mp-item" ' + dragAttr + '>' +
+      '<img class="mp-thumb" src="' + esc(m.public_url) + '" loading="lazy" title="' + esc(m.filename||'') + '" onclick="previewImg(this.src)">' +
       del + '</div>';
   }
   if (m.kind === 'audio') {
-    return '<div class="mp-item mp-item-audio">' +
+    return '<div class="mp-item mp-item-audio" ' + dragAttr + '>' +
       '<audio controls src="' + esc(m.public_url) + '" style="height:32px;max-width:220px"></audio>' +
       '<span class="mp-filename">' + esc(m.filename || 'audio') + '</span>' +
       del + '</div>';
   }
   if (m.kind === 'video') {
-    return '<div class="mp-item mp-item-video">' +
+    return '<div class="mp-item mp-item-video" ' + dragAttr + '>' +
       '<video controls src="' + esc(m.public_url) + '" style="max-height:130px;max-width:200px" preload="metadata"></video>' +
       (m.description ? '<p class="mp-vid-desc">' + esc(m.description) + '</p>' : '') +
       del + '</div>';
@@ -1135,8 +1156,6 @@ function uploadFile(vi, kindCode) {
       const { block_id } = await confirmUpload({ notion_id: pageId, r2_key, public_url: publicUrl, kind, filename: file.name, description });
       if (!videos[vi].mediaIndex) videos[vi].mediaIndex = [];
       videos[vi].mediaIndex.push({ r2_key, block_id, kind, filename: file.name, description, public_url: publicUrl });
-      getTimeline(videos[vi]).push({ k: 'media', r2: r2_key });
-      render();
       refreshMediaPanelDOM(vi);
       const body = document.getElementById('mpb-' + vi);
       if (body && !body.classList.contains('open')) toggleMediaPanel(vi);
@@ -1196,9 +1215,7 @@ async function startRecord(vi) {
         const { block_id } = await confirmUpload({ notion_id: recCtx.pageId, r2_key, public_url: publicUrl, kind: 'audio', filename });
         if (!videos[recCtx.vi].mediaIndex) videos[recCtx.vi].mediaIndex = [];
         videos[recCtx.vi].mediaIndex.push({ r2_key, block_id, kind: 'audio', filename, description: '', public_url: publicUrl });
-        getTimeline(videos[recCtx.vi]).push({ k: 'media', r2: r2_key });
         const curVi = recCtx.vi;
-        render();
         refreshMediaPanelDOM(curVi);
         const body = document.getElementById('mpb-' + curVi);
         if (body && !body.classList.contains('open')) toggleMediaPanel(curVi);
@@ -1683,8 +1700,6 @@ async function saveEditor() {
     var conf = await confirmUpload({ notion_id: ctx.pageId, r2_key: up.r2_key, public_url: up.publicUrl, kind: 'image', filename: filename });
     if (!videos[ctx.vi].mediaIndex) videos[ctx.vi].mediaIndex = [];
     videos[ctx.vi].mediaIndex.push({ r2_key: up.r2_key, block_id: conf.block_id, kind: 'image', filename: filename, description: '', public_url: up.publicUrl });
-    getTimeline(videos[ctx.vi]).push({ k: 'media', r2: up.r2_key });
-    render();
     refreshMediaPanelDOM(ctx.vi);
     var body = document.getElementById('mpb-' + ctx.vi); if (body && !body.classList.contains('open')) toggleMediaPanel(ctx.vi);
     setStatus('saved', 'Image saved!'); setTimeout(function() { setStatus('', 'Ready'); }, 2000);
@@ -1827,9 +1842,9 @@ function setupDrag() {
 
   document.querySelectorAll('.seg').forEach(seg => {
     if (seg.dataset.r2) {
-      // Media inline card
+      // Media inline card (already in row)
       seg.ondragstart = e => {
-        dragData = { kind: 'media', vi: +seg.dataset.vi, r2: seg.dataset.r2 };
+        dragData = { kind: 'media', vi: +seg.dataset.vi, r2: seg.dataset.r2, inRow: true };
         seg.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
       };
@@ -1842,6 +1857,15 @@ function setupDrag() {
       };
     }
     seg.ondragend = () => { seg.classList.remove('dragging'); clearDropIndicators(); dragData = null; };
+  });
+
+  // Panel media items — drag from panel into row
+  document.querySelectorAll('.mp-item[data-r2]').forEach(item => {
+    item.ondragstart = e => {
+      dragData = { kind: 'media', vi: +item.dataset.vi, r2: item.dataset.r2, inRow: false };
+      e.dataTransfer.effectAllowed = 'copy';
+    };
+    item.ondragend = () => { dragData = null; };
   });
   document.querySelectorAll('.segments').forEach(container => {
     container.ondragover = e => {
@@ -1857,17 +1881,26 @@ function setupDrag() {
       clearDropIndicators(); collectAll();
 
       if (dragData.kind === 'media') {
-        const srcTl = getTimeline(videos[dragData.vi]);
-        const srcTi = srcTl.findIndex(item => item.k === 'media' && item.r2 === dragData.r2);
-        if (srcTi === -1) return;
-        const [movedTlItem] = srcTl.splice(srcTi, 1);
-        if (dragData.vi !== toVi) {
-          const mObj = (videos[dragData.vi].mediaIndex || []).find(m => m.r2_key === dragData.r2);
-          videos[dragData.vi].mediaIndex = (videos[dragData.vi].mediaIndex || []).filter(m => m.r2_key !== dragData.r2);
-          if (!videos[toVi].mediaIndex) videos[toVi].mediaIndex = [];
-          if (mObj) videos[toVi].mediaIndex.push(mObj);
+        if (!dragData.inRow) {
+          // Dragging from panel — just insert into timeline at drop position
+          const alreadyIn = getTimeline(videos[toVi]).some(item => item.k === 'media' && item.r2 === dragData.r2);
+          if (!alreadyIn) {
+            getTimeline(videos[toVi]).splice(toTi, 0, { k: 'media', r2: dragData.r2 });
+          }
+        } else {
+          // Reordering within/across rows
+          const srcTl = getTimeline(videos[dragData.vi]);
+          const srcTi = srcTl.findIndex(item => item.k === 'media' && item.r2 === dragData.r2);
+          if (srcTi === -1) return;
+          const [movedTlItem] = srcTl.splice(srcTi, 1);
+          if (dragData.vi !== toVi) {
+            const mObj = (videos[dragData.vi].mediaIndex || []).find(m => m.r2_key === dragData.r2);
+            videos[dragData.vi].mediaIndex = (videos[dragData.vi].mediaIndex || []).filter(m => m.r2_key !== dragData.r2);
+            if (!videos[toVi].mediaIndex) videos[toVi].mediaIndex = [];
+            if (mObj) videos[toVi].mediaIndex.push(mObj);
+          }
+          getTimeline(videos[toVi]).splice(toTi, 0, movedTlItem);
         }
-        getTimeline(videos[toVi]).splice(toTi, 0, movedTlItem);
       } else {
         const seg = videos[dragData.vi].roadmap.segments[dragData.si];
         if (!seg) return;
