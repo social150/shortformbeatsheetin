@@ -417,7 +417,6 @@ function getHTML() {
     .seg-notes.seg-ta { font-size: calc(9px * var(--scale-t)); color: var(--open-loop); font-style: italic; margin-top: 4px; }
     .wrap-mode .seg-desc { min-height: unset; overflow: hidden; resize: none; }
     .wrap-mode .seg { max-width: calc(180px * var(--scale-w)); }
-    .wrap-mode .video-row-main { flex-direction: column; align-items: stretch; }
     .wrap-mode .segments { flex-wrap: wrap; overflow-x: hidden; overflow-y: visible; align-items: flex-start; height: auto; min-height: unset; }
     .wrap-mode .arrow { display: none; }
 
@@ -457,6 +456,27 @@ function getHTML() {
     .mp-del:hover { background: #c00; }
     .mp-empty { font-size: 11px; color: var(--dim); padding: 4px 0; }
 
+    /* ── Inline media cards (in segments row) ───────────────── */
+    .mp-inline { display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+      gap:4px; padding:8px 6px 6px; min-width:90px; max-width:140px; cursor:grab;
+      position:relative; align-self:flex-start; }
+    .mp-inline-thumb { max-height:80px; max-width:120px; border-radius:4px; object-fit:cover;
+      cursor:pointer; border:1px solid var(--border); }
+    .mp-inline-thumb:hover { border-color:#3b82f6; }
+    .mp-inline-icon { font-size:24px; line-height:1; }
+    .mp-inline-label { font-size:10px; color:var(--dim); text-align:center; word-break:break-all;
+      max-width:120px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .mp-inline-del { position:absolute; top:1px; right:1px; width:16px; height:16px; border-radius:50%;
+      border:none; background:var(--escalate); color:#fff; font-size:10px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; line-height:1; opacity:0; transition:opacity 0.15s; }
+    .mp-inline:hover .mp-inline-del { opacity:1; }
+    /* ── Image lightbox ──────────────────────────────────────── */
+    #img-preview { display:none; position:fixed; inset:0; z-index:900;
+      background:rgba(0,0,0,0.9); align-items:center; justify-content:center; cursor:zoom-out; }
+    #img-preview.open { display:flex; }
+    #img-preview-img { max-width:90vw; max-height:90vh; object-fit:contain; border-radius:6px; cursor:default; }
+    #img-preview-close { position:fixed; top:16px; right:20px; background:none; border:none;
+      color:#fff; font-size:30px; cursor:pointer; line-height:1; z-index:901; }
     /* ── Misc ────────────────────────────────────────────────── */
     .empty, .loading { padding: 60px; text-align: center; color: var(--dim); }
     .empty h2, .loading h2 { font-size: 18px; margin-bottom: 12px; color: var(--text); }
@@ -615,6 +635,12 @@ function getHTML() {
   <button id="rec-stop" onclick="stopRecord()">&#9209; Stop</button>
 </div>
 
+<!-- Image lightbox -->
+<div id="img-preview" onclick="closeImgPreview()">
+  <button id="img-preview-close" onclick="closeImgPreview()">&#215;</button>
+  <img id="img-preview-img" src="" onclick="event.stopPropagation()">
+</div>
+
 <!-- Image/drawing editor modal -->
 <div id="editor-modal">
   <div class="editor-wrap">
@@ -684,6 +710,18 @@ function getHTML() {
 
 <script>
 let videos = [];
+function getTimeline(v) {
+  if (!v.timeline) {
+    v.timeline = (v.roadmap?.segments || []).map(s => ({ k: 'seg', id: s.id }))
+      .concat((v.mediaIndex || []).map(m => ({ k: 'media', r2: m.r2_key })));
+  }
+  return v.timeline;
+}
+function previewImg(src) {
+  document.getElementById('img-preview-img').src = src;
+  document.getElementById('img-preview').classList.add('open');
+}
+function closeImgPreview() { document.getElementById('img-preview').classList.remove('open'); }
 let clipboard = null;
 let history = [];
 let historyIndex = -1;
@@ -721,6 +759,7 @@ function updateUndoRedoBtns() {
 
 document.addEventListener('keydown', e => {
   if (document.getElementById('editor-modal').classList.contains('open')) return;
+  if (e.key === 'Escape' && document.getElementById('img-preview').classList.contains('open')) { closeImgPreview(); return; }
   const meta = e.metaKey || e.ctrlKey;
   if (!meta) return;
   const inText = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName);
@@ -737,6 +776,7 @@ document.addEventListener('keydown', e => {
     const s = JSON.parse(JSON.stringify(clipboard));
     s.id = Date.now();
     videos[lastHoveredVi].roadmap.segments.push(s);
+    getTimeline(videos[lastHoveredVi]).push({ k: 'seg', id: s.id });
     saveHistory();
     render();
     showToast('Pasted!');
@@ -890,7 +930,14 @@ function render() {
           '<div class="video-hook">' + esc(v.hook || 'No hook') + '</div>' +
         '</div>' +
         '<div class="segments" data-vi="' + vi + '">' +
-          (v.roadmap?.segments || []).map((s, si) => renderSeg(vi, si, s)).join('<span class="arrow">&#8594;</span>') +
+          getTimeline(v).map(item => {
+            if (item.k === 'seg') {
+              const si = (v.roadmap?.segments || []).findIndex(s => s.id === item.id);
+              return si >= 0 ? renderSeg(vi, si, v.roadmap.segments[si]) : '';
+            }
+            const m = (v.mediaIndex || []).find(m => m.r2_key === item.r2);
+            return m ? renderMediaInline(vi, m) : '';
+          }).join('<span class="arrow">&#8594;</span>') +
           '<div class="add-seg" onclick="addSeg(' + vi + ')">+</div>' +
         '</div>' +
       '</div>' +
@@ -945,6 +992,20 @@ function renderSeg(vi, si, s) {
     '<textarea class="seg-desc" placeholder="Description..." ' + descAttrs + '>' + esc(s.desc) + '</textarea>' +
     notesHtml +
   '</div>';
+}
+
+function renderMediaInline(vi, m) {
+  const r2 = esc(m.r2_key), bid = esc(m.block_id || 'unknown');
+  const del = '<button class="mp-inline-del" title="Delete media" data-vi="' + vi + '" data-r2="' + r2 + '" data-bid="' + bid + '" onclick="deleteMedia(this);event.stopPropagation()">&#215;</button>';
+  let inner = '';
+  if (m.kind === 'image') {
+    inner = '<img class="mp-inline-thumb" src="' + esc(m.public_url) + '" onclick="previewImg(this.src);event.stopPropagation()" title="' + esc(m.filename||'') + '">';
+  } else if (m.kind === 'audio') {
+    inner = '<div class="mp-inline-icon">&#127925;</div><span class="mp-inline-label">' + esc(m.filename||'audio') + '</span>';
+  } else {
+    inner = '<div class="mp-inline-icon">&#127909;</div><span class="mp-inline-label">' + esc(m.filename||'video') + '</span>';
+  }
+  return '<div class="seg mp-inline" data-vi="' + vi + '" data-r2="' + r2 + '" draggable="true">' + del + inner + '</div>';
 }
 
 // ── Media panel ──────────────────────────────────────────────
@@ -1074,6 +1135,8 @@ function uploadFile(vi, kindCode) {
       const { block_id } = await confirmUpload({ notion_id: pageId, r2_key, public_url: publicUrl, kind, filename: file.name, description });
       if (!videos[vi].mediaIndex) videos[vi].mediaIndex = [];
       videos[vi].mediaIndex.push({ r2_key, block_id, kind, filename: file.name, description, public_url: publicUrl });
+      getTimeline(videos[vi]).push({ k: 'media', r2: r2_key });
+      render();
       refreshMediaPanelDOM(vi);
       const body = document.getElementById('mpb-' + vi);
       if (body && !body.classList.contains('open')) toggleMediaPanel(vi);
@@ -1098,6 +1161,8 @@ async function deleteMedia(btn) {
     });
     if (!res.ok) throw new Error('Delete failed');
     videos[vi].mediaIndex = (videos[vi].mediaIndex || []).filter(m => m.r2_key !== r2_key);
+    videos[vi].timeline = getTimeline(videos[vi]).filter(item => !(item.k === 'media' && item.r2 === r2_key));
+    render();
     refreshMediaPanelDOM(vi);
   } catch (err) { setStatus('error', err.message); }
 }
@@ -1131,7 +1196,9 @@ async function startRecord(vi) {
         const { block_id } = await confirmUpload({ notion_id: recCtx.pageId, r2_key, public_url: publicUrl, kind: 'audio', filename });
         if (!videos[recCtx.vi].mediaIndex) videos[recCtx.vi].mediaIndex = [];
         videos[recCtx.vi].mediaIndex.push({ r2_key, block_id, kind: 'audio', filename, description: '', public_url: publicUrl });
+        getTimeline(videos[recCtx.vi]).push({ k: 'media', r2: r2_key });
         const curVi = recCtx.vi;
+        render();
         refreshMediaPanelDOM(curVi);
         const body = document.getElementById('mpb-' + curVi);
         if (body && !body.classList.contains('open')) toggleMediaPanel(curVi);
@@ -1616,6 +1683,8 @@ async function saveEditor() {
     var conf = await confirmUpload({ notion_id: ctx.pageId, r2_key: up.r2_key, public_url: up.publicUrl, kind: 'image', filename: filename });
     if (!videos[ctx.vi].mediaIndex) videos[ctx.vi].mediaIndex = [];
     videos[ctx.vi].mediaIndex.push({ r2_key: up.r2_key, block_id: conf.block_id, kind: 'image', filename: filename, description: '', public_url: up.publicUrl });
+    getTimeline(videos[ctx.vi]).push({ k: 'media', r2: up.r2_key });
+    render();
     refreshMediaPanelDOM(ctx.vi);
     var body = document.getElementById('mpb-' + ctx.vi); if (body && !body.classList.contains('open')) toggleMediaPanel(ctx.vi);
     setStatus('saved', 'Image saved!'); setTimeout(function() { setStatus('', 'Ready'); }, 2000);
@@ -1683,21 +1752,27 @@ function chgType(sel) {
 }
 function addSeg(vi) {
   collectAll();
-  videos[vi].roadmap.segments.push({ id: Date.now(), type: 'body', title: '', desc: '', notes: '' });
+  const newSeg = { id: Date.now(), type: 'body', title: '', desc: '', notes: '' };
+  videos[vi].roadmap.segments.push(newSeg);
+  getTimeline(videos[vi]).push({ k: 'seg', id: newSeg.id });
   saveHistory(); render();
 }
 function delSeg(vi, si) {
   collectAll();
+  const id = videos[vi].roadmap.segments[si].id;
   videos[vi].roadmap.segments.splice(si, 1);
+  videos[vi].timeline = getTimeline(videos[vi]).filter(item => !(item.k === 'seg' && item.id === id));
   saveHistory(); render();
 }
 function moveSeg(vi, si, dir) {
   collectAll();
-  const segs = videos[vi].roadmap.segments;
-  const np = si + dir;
-  if (np < 0 || np >= segs.length) return;
-  const [s] = segs.splice(si, 1);
-  segs.splice(np, 0, s);
+  const id = videos[vi].roadmap.segments[si].id;
+  const tl = getTimeline(videos[vi]);
+  const ti = tl.findIndex(item => item.k === 'seg' && item.id === id);
+  const newTi = ti + dir;
+  if (newTi < 0 || newTi >= tl.length) return;
+  tl.splice(newTi, 0, tl.splice(ti, 1)[0]);
+  videos[vi].timeline = tl;
   saveHistory(); render();
 }
 function copySeg(vi, si) {
@@ -1710,7 +1785,12 @@ function pasteSeg(vi, si) {
   collectAll();
   const s = JSON.parse(JSON.stringify(clipboard));
   s.id = Date.now();
+  const origId = videos[vi].roadmap.segments[si].id;
   videos[vi].roadmap.segments.splice(si + 1, 0, s);
+  const tl = getTimeline(videos[vi]);
+  const ti = tl.findIndex(item => item.k === 'seg' && item.id === origId);
+  tl.splice(ti >= 0 ? ti + 1 : tl.length, 0, { k: 'seg', id: s.id });
+  videos[vi].timeline = tl;
   saveHistory(); render(); showToast('Pasted!');
 }
 function showToast(msg) {
@@ -1723,34 +1803,44 @@ function showToast(msg) {
 function setupDrag() {
   let dragData = null;
   function calcDropIndex(container, clientX) {
-    const segs = [...container.querySelectorAll('.seg:not(.dragging)')];
-    for (let i = 0; i < segs.length; i++) {
-      const r = segs[i].getBoundingClientRect();
+    const items = [...container.querySelectorAll('.seg:not(.dragging)')];
+    for (let i = 0; i < items.length; i++) {
+      const r = items[i].getBoundingClientRect();
       if (clientX < r.left + r.width / 2) return i;
     }
-    return segs.length;
+    return items.length;
   }
   function showDropIndicator(container, index) {
     clearDropIndicators();
     const ind = document.createElement('div');
     ind.className = 'drop-indicator';
-    const segs = [...container.querySelectorAll('.seg:not(.dragging)')];
-    if (!segs.length || index >= segs.length) {
+    const items = [...container.querySelectorAll('.seg:not(.dragging)')];
+    if (!items.length || index >= items.length) {
       container.insertBefore(ind, container.querySelector('.add-seg') || null);
     } else {
-      const prev = segs[index].previousSibling;
-      const before = (prev && prev.classList && prev.classList.contains('arrow')) ? prev : segs[index];
+      const prev = items[index].previousSibling;
+      const before = (prev && prev.classList && prev.classList.contains('arrow')) ? prev : items[index];
       container.insertBefore(ind, before);
     }
   }
   function clearDropIndicators() { document.querySelectorAll('.drop-indicator').forEach(el => el.remove()); }
 
   document.querySelectorAll('.seg').forEach(seg => {
-    seg.ondragstart = e => {
-      dragData = { vi: +seg.dataset.vi, si: +seg.dataset.si };
-      seg.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-    };
+    if (seg.dataset.r2) {
+      // Media inline card
+      seg.ondragstart = e => {
+        dragData = { kind: 'media', vi: +seg.dataset.vi, r2: seg.dataset.r2 };
+        seg.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      };
+    } else {
+      // Segment card
+      seg.ondragstart = e => {
+        dragData = { kind: 'seg', vi: +seg.dataset.vi, si: +seg.dataset.si };
+        seg.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      };
+    }
     seg.ondragend = () => { seg.classList.remove('dragging'); clearDropIndicators(); dragData = null; };
   });
   document.querySelectorAll('.segments').forEach(container => {
@@ -1763,10 +1853,34 @@ function setupDrag() {
       e.preventDefault();
       if (!dragData) return;
       const toVi = +container.dataset.vi;
-      const toSi = calcDropIndex(container, e.clientX);
+      const toTi = calcDropIndex(container, e.clientX);
       clearDropIndicators(); collectAll();
-      const [moved] = videos[dragData.vi].roadmap.segments.splice(dragData.si, 1);
-      videos[toVi].roadmap.segments.splice(toSi, 0, moved);
+
+      if (dragData.kind === 'media') {
+        const srcTl = getTimeline(videos[dragData.vi]);
+        const srcTi = srcTl.findIndex(item => item.k === 'media' && item.r2 === dragData.r2);
+        if (srcTi === -1) return;
+        const [movedTlItem] = srcTl.splice(srcTi, 1);
+        if (dragData.vi !== toVi) {
+          const mObj = (videos[dragData.vi].mediaIndex || []).find(m => m.r2_key === dragData.r2);
+          videos[dragData.vi].mediaIndex = (videos[dragData.vi].mediaIndex || []).filter(m => m.r2_key !== dragData.r2);
+          if (!videos[toVi].mediaIndex) videos[toVi].mediaIndex = [];
+          if (mObj) videos[toVi].mediaIndex.push(mObj);
+        }
+        getTimeline(videos[toVi]).splice(toTi, 0, movedTlItem);
+      } else {
+        const seg = videos[dragData.vi].roadmap.segments[dragData.si];
+        if (!seg) return;
+        const srcTl = getTimeline(videos[dragData.vi]);
+        const srcTi = srcTl.findIndex(item => item.k === 'seg' && item.id === seg.id);
+        const [movedTlItem] = srcTl.splice(srcTi >= 0 ? srcTi : srcTl.length, 1);
+        if (dragData.vi !== toVi) {
+          videos[dragData.vi].roadmap.segments.splice(dragData.si, 1);
+          if (!videos[toVi].roadmap) videos[toVi].roadmap = { segments: [] };
+          videos[toVi].roadmap.segments.push(seg);
+        }
+        getTimeline(videos[toVi]).splice(toTi, 0, movedTlItem || { k: 'seg', id: seg.id });
+      }
       saveHistory(); render();
     };
   });
@@ -1776,6 +1890,7 @@ function setupDrag() {
 function toggleWrap() {
   wrapMode = !wrapMode;
   document.getElementById('wrapBtn').classList.toggle('btn-active', wrapMode);
+  document.body.classList.toggle('wrap-mode', wrapMode);
   collectAll();
   render();
   if (wrapMode) setupWrapResize();
