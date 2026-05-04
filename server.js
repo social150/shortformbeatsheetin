@@ -1216,9 +1216,7 @@ function rasterizeCanvas(callback) {
   bgImg.src = snap;
 }
 
-function canvasSnapshot() {
-  // Compute bounding box across ALL objects so content drawn outside the
-  // default canvas bounds (when zoomed out and panned) is not clipped.
+function computeBBox() {
   var minX = 0, minY = 0, maxX = fabricCanvas.getWidth(), maxY = fabricCanvas.getHeight();
   fabricCanvas.getObjects().forEach(function(o) {
     var r = o.getBoundingRect(false, true);
@@ -1227,14 +1225,31 @@ function canvasSnapshot() {
     if (r.left + r.width  > maxX) maxX = Math.ceil(r.left + r.width)  + 2;
     if (r.top  + r.height > maxY) maxY = Math.ceil(r.top  + r.height) + 2;
   });
-  var cvs = fabricCanvas.toCanvasElement(1, { left: minX, top: minY, width: maxX - minX, height: maxY - minY });
-  return { cvs: cvs, ox: minX, oy: minY };
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
-function applySnapshot(snap, savedVT) {
+function canvasSnapshot() {
+  var b = computeBBox();
+  return { cvs: fabricCanvas.toCanvasElement(1, { left: b.x, top: b.y, width: b.w, height: b.h }), ox: b.x, oy: b.y };
+}
+function canvasBgSnapshot() {
+  // Same bounding box as canvasSnapshot but renders only background objects.
+  // Used by flood fill so vector objects stay as live Fabric objects after fill.
+  var b = computeBBox();
+  var nonBg = fabricCanvas.getObjects().filter(function(o){ return !o._isBackground; });
+  nonBg.forEach(function(o){ o.visible = false; });
+  var cvs = fabricCanvas.toCanvasElement(1, { left: b.x, top: b.y, width: b.w, height: b.h });
+  nonBg.forEach(function(o){ o.visible = true; });
+  return { cvs: cvs, ox: b.x, oy: b.y };
+}
+function applySnapshot(snap, savedVT, flattenAll) {
   var cvs = snap.cvs || snap;
   var ox = snap.ox || 0, oy = snap.oy || 0;
   fabricCanvas.setViewportTransform(savedVT);
-  fabricCanvas.getObjects().slice().forEach(function(o){ fabricCanvas.remove(o); });
+  if (flattenAll) {
+    fabricCanvas.getObjects().slice().forEach(function(o){ fabricCanvas.remove(o); });
+  } else {
+    fabricCanvas.getObjects().filter(function(o){ return o._isBackground; }).forEach(function(o){ fabricCanvas.remove(o); });
+  }
   var bgImg = new Image();
   bgImg.onload = function() {
     var fImg = new fabric.Image(bgImg, { left: ox, top: oy, selectable:false, evented:false, _isBackground:true });
@@ -1254,8 +1269,9 @@ function floodFill(e) {
   var px = Math.round((e.clientX - bounds.left - savedVT[4]) / savedVT[0]);
   var py = Math.round((e.clientY - bounds.top  - savedVT[5]) / savedVT[3]);
   fabricCanvas.setViewportTransform([1,0,0,1,0,0]);
-  var snap = canvasSnapshot();
-  var off = snap.cvs, ox = snap.ox, oy = snap.oy;
+  // Pass 1: full snapshot (all objects) — used only to determine BFS boundaries
+  var fullSnap = canvasSnapshot();
+  var off = fullSnap.cvs, ox = fullSnap.ox, oy = fullSnap.oy;
   var w = off.width, h = off.height;
   var spx = px - ox, spy = py - oy;
   if (spx < 0 || spy < 0 || spx >= w || spy >= h) { fabricCanvas.setViewportTransform(savedVT); return; }
@@ -1277,8 +1293,15 @@ function floodFill(e) {
     if(cy>0   &&!vis[pos-w] &&hit((pos-w)*4)){vis[pos-w]=1;q[qt++]=pos-w;}
     if(cy<h-1 &&!vis[pos+w] &&hit((pos+w)*4)){vis[pos+w]=1;q[qt++]=pos+w;}
   }
-  ctx.putImageData(id, 0, 0);
-  applySnapshot(snap, savedVT);
+  // Pass 2: background-only snapshot — apply fill pixels here so vector objects stay live
+  var bgSnap = canvasBgSnapshot();
+  var bgCtx = bgSnap.cvs.getContext('2d');
+  var bgId = bgCtx.getImageData(0, 0, w, h), bgD = bgId.data;
+  for (var vi = 0; vi < vis.length; vi++) {
+    if (vis[vi]) { bgD[vi*4]=fR; bgD[vi*4+1]=fG; bgD[vi*4+2]=fB; bgD[vi*4+3]=255; }
+  }
+  bgCtx.putImageData(bgId, 0, 0);
+  applySnapshot(bgSnap, savedVT, false);  // only replace background; keep vector objects
 }
 
 function applyErase() {
@@ -1303,7 +1326,7 @@ function applyErase() {
     ctx.stroke();
   }
   erasePoints = []; isErasing = false;
-  applySnapshot(snap, savedVT);
+  applySnapshot(snap, savedVT, true);  // pixel erase flattens — expected for pixel-level op
 }
 
 function hexToRgba(hex, alpha) {
