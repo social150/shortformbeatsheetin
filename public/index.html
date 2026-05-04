@@ -75,10 +75,10 @@
     .video-meta { display: flex; align-items: center; gap: 8px; }
     .video-num { font-size: 10px; font-weight: 700; color: var(--dim); font-family: monospace; }
     .video-status { font-size: 9px; font-weight: 600; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; background: var(--bg3); color: var(--dim); }
-    .video-title { font-size: 13px; font-weight: 600; color: var(--text); background: transparent; border: none; width: 100%; font-family: inherit; }
+    .video-title { font-size: 13px; font-weight: 600; color: var(--text); background: transparent; border: none; width: 100%; font-family: inherit; resize: none; overflow: hidden; line-height: 1.4; }
     .video-title:focus { outline: none; background: var(--bg3); border-radius: 3px; padding: 2px 4px; margin: -2px -4px; }
-    .video-hook { font-size: 11px; color: var(--dim); background: transparent; border: none; width: 100%; font-family: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .video-hook:focus { outline: none; background: var(--bg3); border-radius: 3px; padding: 2px 4px; margin: -2px -4px; color: var(--text); white-space: normal; text-overflow: clip; }
+    .video-hook { font-size: 11px; color: var(--dim); background: transparent; border: none; width: 100%; font-family: inherit; resize: none; overflow: hidden; line-height: 1.4; }
+    .video-hook:focus { outline: none; background: var(--bg3); border-radius: 3px; padding: 2px 4px; margin: -2px -4px; color: var(--text); }
 
     .video-info-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
     .url-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; color: var(--dim); font-size: 11px; font-weight: 700; text-decoration: none; letter-spacing: 0.05em; }
@@ -700,12 +700,12 @@ function render() {
       '<div class="video-row-main">' +
         '<div class="video-info">' +
           '<div class="video-meta"><span class="video-num">#' + (vi+1) + '</span><span class="video-status">' + esc(v.status||'-') + '</span></div>' +
-          '<input class="video-title" value="' + esc(v.title) + '" placeholder="Title...">' +
+          '<textarea class="video-title" placeholder="Title..." oninput="autoResize(this)">' + esc(v.title) + '</textarea>' +
           '<div class="video-info-row">' +
             (v.videoUrl ? '<a class="url-btn" href="' + esc(v.videoUrl) + '" target="_blank" rel="noopener">URL</a>' : '<span class="url-btn" style="opacity:0.4;cursor:default">no url</span>') +
             '<span class="char-count" id="cc-' + vi + '">' + videoCharCount(v) + ' chars</span>' +
           '</div>' +
-          '<input class="video-hook" value="' + esc(v.hook || '') + '" placeholder="No hook">' +
+          '<textarea class="video-hook" placeholder="No hook" oninput="autoResize(this)">' + esc(v.hook || '') + '</textarea>' +
         '</div>' +
         '<div class="segments" data-vi="' + vi + '">' +
           getTimeline(v).map(item => {
@@ -736,6 +736,7 @@ function render() {
   setupCardSelect();
   setupHoverTracking();
   if (wrapMode) setupWrapResize();
+  document.querySelectorAll('.video-title, .video-hook').forEach(autoResize);
 }
 
 function renderSeg(vi, si, s) {
@@ -1696,7 +1697,7 @@ function autoResize(el) {
   el.style.height = el.scrollHeight + 'px';
 }
 function setupWrapResize() {
-  document.querySelectorAll('.seg-ta, .seg-desc').forEach(el => {
+  document.querySelectorAll('.seg-ta, .seg-desc, .video-title, .video-hook').forEach(el => {
     autoResize(el);
     if (!el._arBound) {
       el._arBound = true;
