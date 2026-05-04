@@ -417,6 +417,9 @@ function getHTML() {
     .seg-notes.seg-ta { font-size: calc(9px * var(--scale-t)); color: var(--open-loop); font-style: italic; margin-top: 4px; }
     .wrap-mode .seg-desc { min-height: unset; overflow: hidden; resize: none; }
     .wrap-mode .seg { max-width: calc(180px * var(--scale-w)); }
+    .wrap-mode .video-row-main { flex-direction: column; align-items: stretch; }
+    .wrap-mode .segments { flex-wrap: wrap; overflow-x: hidden; overflow-y: visible; align-items: flex-start; height: auto; min-height: unset; }
+    .wrap-mode .arrow { display: none; }
 
     .arrow { color: var(--dim); font-size: 12px; flex-shrink: 0; padding: 0 2px; }
     .drop-indicator { width: 3px; align-self: stretch; min-height: calc(60px * var(--scale-h)); background: var(--hook); border-radius: 2px; flex-shrink: 0; animation: dropPulse 0.5s ease infinite alternate; }
@@ -485,8 +488,8 @@ function getHTML() {
     #draw-width, #draw-opacity { width: 70px; accent-color: #3b82f6; cursor: pointer; }
     .etool-val { font-size: 11px; color: #6b6b80; min-width: 28px; }
     .etool-numval { width: 44px; background: #1e1e28; border: 1px solid #2a2a3a; color: #e8e8ed; border-radius: 4px; padding: 2px 4px; font-size: 12px; text-align: center; }
-    #draw-canvas-wrap { flex: 1; min-height: 0; overflow: hidden; cursor: crosshair; background: #fff; }
-    #draw-canvas-wrap canvas { display: block; }
+    #draw-canvas-wrap { flex: 1; min-height: 0; overflow: hidden; cursor: crosshair; background: #2a2a3a; }
+    #draw-canvas-wrap canvas { display: block; box-shadow: 0 0 0 1px #555; }
     .editor-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 12px; background: #111118; border-top: 1px solid #2a2a3a; flex-shrink: 0; }
     .etool-tool { display: flex; flex-direction: column; align-items: center; gap: 1px; }
     .etool-hotkey { font-size: 9px; color: #4b4b5b; line-height: 1; user-select: none; }
@@ -717,6 +720,7 @@ function updateUndoRedoBtns() {
 }
 
 document.addEventListener('keydown', e => {
+  if (document.getElementById('editor-modal').classList.contains('open')) return;
   const meta = e.metaKey || e.ctrlKey;
   if (!meta) return;
   const inText = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName);
@@ -1445,6 +1449,7 @@ function initEditor(imgDataUrl, pageId, vi) {
   fabricCanvas = new fabric.Canvas('draw-canvas', { backgroundColor: '#ffffff', selection: false });
   fabricCanvas.setWidth(w);
   fabricCanvas.setHeight(h);
+  fabricCanvas.clipPath = new fabric.Rect({ left: 0, top: 0, width: w, height: h, absolutePositioned: true });
   updateDrawBrush();
   setDrawTool('pen');
   var zs = document.getElementById('draw-zoom'), zv = document.getElementById('draw-zoom-val');
@@ -1588,7 +1593,9 @@ function onDrawKey(e) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'c') { var o = fabricCanvas.getActiveObject(); if (o) editorClipboard = o.toObject(); }
   if ((e.metaKey || e.ctrlKey) && e.key === 'v' && editorClipboard) {
     fabric.util.enlivenObjects([editorClipboard], function(objs) {
-      objs.forEach(function(o) { o.set({ left: o.left + 20, top: o.top + 20 }); fabricCanvas.add(o); });
+      var pasted = [];
+      objs.forEach(function(o) { o.set({ left: o.left + 20, top: o.top + 20, selectable: true, evented: true, lockMovementX: false, lockMovementY: false }); fabricCanvas.add(o); pasted.push(o); });
+      if (pasted.length === 1) fabricCanvas.setActiveObject(pasted[0]);
       fabricCanvas.renderAll(); saveDrawState();
     });
   }
