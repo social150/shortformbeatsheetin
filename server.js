@@ -883,13 +883,17 @@ function collectAll() {
     const vi = +row.dataset.vi;
     if (isNaN(vi)) return;
     videos[vi].roadmap.segments = [];
-    row.querySelectorAll('.seg').forEach(seg => {
+    row.querySelectorAll('.seg:not(.mp-inline)').forEach(seg => {
+      const titleEl = seg.querySelector('.seg-title');
+      const descEl  = seg.querySelector('.seg-desc');
+      const notesEl = seg.querySelector('.seg-notes');
+      if (!titleEl) return;
       videos[vi].roadmap.segments.push({
-        id: Date.now() + Math.random(),
-        type: seg.dataset.type,
-        title: seg.querySelector('.seg-title').value,
-        desc:  seg.querySelector('.seg-desc').value,
-        notes: seg.querySelector('.seg-notes').value
+        id:    +seg.dataset.id,
+        type:  seg.dataset.type,
+        title: titleEl.value,
+        desc:  descEl  ? descEl.value  : '',
+        notes: notesEl ? notesEl.value : ''
       });
     });
   });
@@ -989,7 +993,7 @@ function renderSeg(vi, si, s) {
     ? 'oninput="autoResize(this);updateCharCount(' + vi + ')"'
     : 'rows="3" oninput="updateCharCount(' + vi + ')"';
 
-  return '<div class="seg ' + s.type + '" data-type="' + s.type + '" data-vi="' + vi + '" data-si="' + si + '" draggable="true">' +
+  return '<div class="seg ' + s.type + '" data-type="' + s.type + '" data-vi="' + vi + '" data-si="' + si + '" data-id="' + s.id + '" draggable="true">' +
     '<div class="seg-header">' +
       '<select class="seg-type" onchange="chgType(this)">' +
         TYPES.map(t => '<option value="' + t + '"' + (t === s.type ? ' selected' : '') + '>' + t.replace(/-/g,' ').toUpperCase() + '</option>').join('') +
