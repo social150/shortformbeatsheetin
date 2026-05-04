@@ -345,6 +345,7 @@
 <div class="filter-bar">
   <label>Filter:</label>
   <select class="filter-select" id="statusFilter" onchange="applyFilter()"><option value="">All</option></select>
+  <button class="btn" id="hideNotPursuingBtn" onclick="toggleHideNotPursuing()" style="font-size:11px;padding:4px 10px;">Hide Not Pursuing</button>
   <div class="status-counts" id="statusCounts"></div>
 </div>
 
@@ -661,13 +662,23 @@ function buildFilter() {
   }).join('');
 }
 
+let hideNotPursuing = false;
+function toggleHideNotPursuing() {
+  hideNotPursuing = !hideNotPursuing;
+  document.getElementById('hideNotPursuingBtn').classList.toggle('btn-active', hideNotPursuing);
+  applyFilter();
+}
+
 function applyFilter() {
   const f = document.getElementById('statusFilter').value;
   document.querySelectorAll('.video-row').forEach(row => {
-    row.classList.toggle('hidden', f && row.dataset.status !== f);
+    const status = row.dataset.status || '';
+    const filteredOut = f && status !== f;
+    const notPursuing = hideNotPursuing && status.toLowerCase() === 'not pursuing';
+    row.classList.toggle('hidden', filteredOut || notPursuing);
   });
   const vis = document.querySelectorAll('.video-row:not(.hidden)').length;
-  document.getElementById('count').textContent = f ? vis + ' of ' + videos.length : videos.length + ' videos';
+  document.getElementById('count').textContent = (f || hideNotPursuing) ? vis + ' of ' + videos.length : videos.length + ' videos';
 }
 
 // ── Render ───────────────────────────────────────────────────
