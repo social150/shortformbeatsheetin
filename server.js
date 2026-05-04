@@ -834,8 +834,11 @@ function initScale() {
 async function pullFromNotion() {
   setStatus('syncing', 'Pulling...');
   try {
-    const res = await fetch('/api/pull');
-    if (!res.ok) throw new Error('Pull failed');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 30000);
+    const res = await fetch('/api/pull', { signal: ctrl.signal }).catch(e => { clearTimeout(timer); throw new Error('Network error: ' + e.message); });
+    clearTimeout(timer);
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error('Pull failed: ' + (e.error || res.status)); }
     videos = await res.json();
     // Ensure every segment has an id (old Notion data may predate the id field)
     videos.forEach(v => {
