@@ -879,23 +879,21 @@ function updateCharCount(vi) {
 }
 
 function collectAll() {
-  document.querySelectorAll('.video-row').forEach(row => {
-    const vi = +row.dataset.vi;
-    if (isNaN(vi)) return;
-    videos[vi].roadmap.segments = [];
-    row.querySelectorAll('.seg:not(.mp-inline)').forEach(seg => {
-      const titleEl = seg.querySelector('.seg-title');
-      const descEl  = seg.querySelector('.seg-desc');
-      const notesEl = seg.querySelector('.seg-notes');
-      if (!titleEl) return;
-      videos[vi].roadmap.segments.push({
-        id:    +seg.dataset.id,
-        type:  seg.dataset.type,
-        title: titleEl.value,
-        desc:  descEl  ? descEl.value  : '',
-        notes: notesEl ? notesEl.value : ''
-      });
-    });
+  document.querySelectorAll('.seg:not(.mp-inline)').forEach(seg => {
+    const vi    = +seg.dataset.vi;
+    const segId = +seg.dataset.id;
+    if (isNaN(vi) || !segId) return;
+    const segs = videos[vi]?.roadmap?.segments;
+    if (!segs) return;
+    const s = segs.find(s => s.id === segId);
+    if (!s) return;
+    const titleEl = seg.querySelector('.seg-title');
+    const descEl  = seg.querySelector('.seg-desc');
+    const notesEl = seg.querySelector('.seg-notes');
+    if (titleEl) s.title = titleEl.value;
+    if (descEl)  s.desc  = descEl.value;
+    if (notesEl) s.notes = notesEl.value;
+    s.type = seg.dataset.type;
   });
 }
 
