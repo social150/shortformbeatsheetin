@@ -646,6 +646,18 @@ function collectAll() {
     if (notesEl) s.notes = notesEl.value;
     s.type = seg.dataset.type;
   });
+  // Reorder roadmap.segments to match the current timeline so drag order is persisted
+  videos.forEach(v => {
+    if (!v.roadmap?.segments?.length) return;
+    const tl = getTimeline(v);
+    const segIds = tl.filter(i => i.k === 'seg').map(i => i.id);
+    const segMap = Object.fromEntries(v.roadmap.segments.map(s => [s.id, s]));
+    const inTimeline = new Set(segIds);
+    v.roadmap.segments = [
+      ...segIds.map(id => segMap[id]).filter(Boolean),
+      ...v.roadmap.segments.filter(s => !inTimeline.has(s.id))
+    ];
+  });
 }
 
 function buildFilter() {
